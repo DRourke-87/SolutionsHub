@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}Solutions &amp; Offerings{% endblock %}
+{% block content %}
+<section class="hero">
+  <div class="hero-text">
+    <p class="hero-kicker">Amentum SolutionsHub</p>
+    <h1>Solutions &amp; Offerings</h1>
+    <p class="hero-lead">Approved and published offerings from across Amentum – what we do, the customer problems we solve, and who to talk to. Use them to shape proposals, briefings and on-contract growth conversations.</p>
+    <div class="hero-actions">
+      <a class="btn btn-primary" href="/submissions/new">Submit a new offering</a>
+      <a class="btn btn-hero-ghost" href="/dashboard">My work{% if needs_action %} <span class="pill-count">{{ needs_action }}</span>{% endif %}</a>
+    </div>
+  </div>
+  <div class="hero-stat"><b>{{ total }}</b><span>offering{{ '' if total == 1 else 's' }} in the catalogue</span></div>
+</section>
+
+<form id="filters" class="gallery-filters" method="get" action="/catalogue"
+      hx-get="/catalogue" hx-target="#gallery" hx-swap="innerHTML" hx-push-url="true"
+      hx-trigger="change, submit, input changed delay:300ms from:#q">
+  <div class="filter-row">
+    <label class="visually-hidden" for="q">Search</label>
+    <input id="q" type="search" name="q" value="{{ q }}" placeholder="Search offerings, challenges, benefits…" autocomplete="off">
+    <select name="business_group_id" aria-label="Business group">
+      <option value="">All business groups</option>
+      {% for g in groups %}<option value="{{ g.id }}" {% if business_group_id == g.id %}selected{% endif %}>{{ g.name }}</option>{% endfor %}
+    </select>
+    <select name="readiness" aria-label="Level of readiness">
+      <option value="">Any readiness</option>
+      {% for value, label in readiness_options %}<option value="{{ value }}" {% if readiness == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+    <noscript><button class="btn btn-secondary" type="submit">Apply</button></noscript>
+  </div>
+  <div class="area-chips" role="radiogroup" aria-label="Capability area">
+    <label class="area-chip {% if not area %}active{% endif %}">
+      <input type="radio" name="area" value="" {% if not area %}checked{% endif %}>
+      <span class="area-chip-label">All areas</span>
+      <span class="area-chip-count">{{ total }}</span>
+    </label>
+    {% for a in areas %}
+    <label class="area-chip {% if area == a.id %}active{% endif %}" title="{{ a.name }}">
+      <input type="radio" name="area" value="{{ a.id }}" {% if area == a.id %}checked{% endif %}>
+      {% if AREA_ICONS.get(a.name) %}<img src="{{ AREA_ICONS[a.name] }}" alt="" class="area-chip-icon">{% endif %}
+      <span class="area-chip-label">{{ a.name }}</span>
+      <span class="area-chip-count">{{ area_counts.get(a.id, 0) }}</span>
+    </label>
+    {% endfor %}
+  </div>
+</form>
+
+<div id="gallery" aria-live="polite">
+  {% include "partials/gallery_grid.html" %}
+</div>
+{% endblock %}

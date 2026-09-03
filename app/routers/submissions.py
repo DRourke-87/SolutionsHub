@@ -251,7 +251,7 @@ async def _store_uploads(db: Session, sub: Submission, files: list[UploadFile], 
 
 
 # --------------------------------------------------------------------------- dashboard & list
-@router.get("/")
+@router.get("/dashboard")
 def dashboard(request: Request, db: Session = Depends(get_db), user: User = Depends(require_user)):
     mine = (
         db.execute(
@@ -308,10 +308,11 @@ def list_submissions(
     request: Request,
     status: str | None = None,
     q: str | None = None,
-    business_group_id: int | None = None,
+    business_group_id: str = "",
     db: Session = Depends(get_db),
     user: User = Depends(require_user),
 ):
+    business_group_id = int(business_group_id) if business_group_id.isdigit() else None
     stmt = select(Submission).options(selectinload(Submission.business_group)).where(Submission.archived_at.is_(None))
     scope = _scope_filter(user)
     if scope is not None:
@@ -584,7 +585,8 @@ def delete_attachment(
 @router.get("/submissions/{submission_id}/attachments/{attachment_id}/download")
 def download(submission_id: int, attachment_id: int, db: Session = Depends(get_db), user: User = Depends(require_user)):
     sub = _load(db, submission_id)
-    _require_view(user, sub)
+    if not policy.can_download_attachment(user, sub):
+        raise HTTPException(403, "You do not have access to this file")
     att = db.get(Attachment, attachment_id)
     if att is None or att.submission_id != sub.id or att.deleted_at:
         raise HTTPException(404)

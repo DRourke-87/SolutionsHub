@@ -59,7 +59,27 @@ def _human_size(n: int | None) -> str:
 
 
 templates.env.filters.update(dt=_fmt_dt, date=_fmt_date, status_label=_status_label, filesize=_human_size)
+AREA_ICONS = {
+    "Mission Modernization & Sustainment": "/static/img/areas/mission-modernization.svg",
+    "Space Systems": "/static/img/areas/space-systems.svg",
+    "Digital Transformation": "/static/img/areas/digital-transformation.svg",
+    "Sustainability & Environment": "/static/img/areas/sustainability-environment.svg",
+    "Advanced Energy": "/static/img/areas/advanced-energy.svg",
+    "Data Analytics and Cyber": "/static/img/areas/data-analytics-cyber.svg",
+}
+
+
+def _excerpt(text: str | None, length: int = 160) -> str:
+    text = " ".join((text or "").split())
+    if len(text) <= length:
+        return text
+    cut = text[:length].rsplit(" ", 1)[0]
+    return cut.rstrip(".,;:") + "…"
+
+
+templates.env.filters["excerpt"] = _excerpt
 templates.env.globals.update(
+    AREA_ICONS=AREA_ICONS,
     Status=Status,
     Role=Role,
     ContactRole=ContactRole,

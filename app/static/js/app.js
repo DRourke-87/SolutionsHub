@@ -39,6 +39,16 @@
     refresh();
   }
 
+  // Catalogue: keep the active chip styling in sync for browsers without :has()
+  var chips = document.querySelector(".area-chips");
+  if (chips) {
+    chips.addEventListener("change", function () {
+      chips.querySelectorAll(".area-chip").forEach(function (c) {
+        c.classList.toggle("active", c.querySelector("input").checked);
+      });
+    });
+  }
+
   // Confirmations on destructive forms
   document.addEventListener("submit", function (e) {
     var form = e.target;

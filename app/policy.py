@@ -28,6 +28,19 @@ def is_staff(user: User) -> bool:
     return any(user.has_role(r) for r in (Role.REVIEWER, Role.APPROVER, Role.PUBLISHER, Role.ADMIN))
 
 
+# --------------------------------------------------------------------------- catalogue (approved content)
+CATALOGUE_STATUSES = {Status.APPROVED, Status.READY_TO_PUBLISH, Status.PUBLISHED}
+
+
+def is_catalogue_visible(sub: Submission) -> bool:
+    """Approved content is visible read-only to every signed-in user via the catalogue."""
+    return sub.status_enum in CATALOGUE_STATUSES and sub.archived_at is None
+
+
+def can_download_attachment(user: User, sub: Submission) -> bool:
+    return can_view(user, sub) or is_catalogue_visible(sub)
+
+
 # --------------------------------------------------------------------------- viewing
 def can_view(user: User, sub: Submission) -> bool:
     if is_admin(user) or is_contact(user, sub) or _has(user, Role.PUBLISHER):

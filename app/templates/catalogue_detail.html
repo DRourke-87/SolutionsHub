@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block title %}{{ sub.offering_name }}{% endblock %}
+{% block content %}
+{% set primary = sub.capabilities[0].capability.area if sub.capabilities else None %}
+<section class="hero hero-detail">
+  <div class="hero-text">
+    <a class="hero-back" href="/catalogue">← Catalogue</a>
+    <p class="hero-kicker">{% if primary %}{% if AREA_ICONS.get(primary.name) %}<img src="{{ AREA_ICONS[primary.name] }}" alt="" class="hero-area-icon">{% endif %}{{ primary.name }}{% else %}Offering{% endif %}</p>
+    <h1>{{ sub.offering_name }}</h1>
+    <div class="hero-badges">
+      <span class="badge badge-{{ sub.status }}">{{ sub.status|status_label }}</span>
+      {% if sub.business_group %}<span class="hero-pill">{{ sub.business_group.name }}</span>{% endif %}
+      {% if sub.readiness_level %}<span class="hero-pill">{{ READINESS_LABELS[ReadinessLevel(sub.readiness_level)] }}</span>{% endif %}
+      <span class="hero-pill">{{ sub.display_ref }}</span>
+    </div>
+    <div class="hero-actions">
+      {% if sub.published_url %}<a class="btn btn-primary" href="{{ sub.published_url }}" target="_blank" rel="noopener">View published page ↗</a>{% endif %}
+      {% if owners %}<a class="btn btn-hero-ghost" href="mailto:{{ owners|map(attribute='email')|join(',') }}?subject={{ ('SolutionsHub: ' ~ sub.offering_name)|urlencode }}">Contact the owners</a>{% endif %}
+      {% if can_view_full %}<a class="btn btn-hero-ghost" href="/submissions/{{ sub.id }}">Open full record</a>{% endif %}
+    </div>
+  </div>
+</section>
+
+{% if newer_in_progress %}<div class="flash flash-info">A newer revision of this offering is currently under review. This page shows the most recent <strong>approved</strong> version (revision {{ approved_revision }}).</div>{% endif %}
+
+<div class="layout-2">
+<div class="col-main">
+  <section class="card">
+    <h2 class="section-title">Customer challenge</h2>
+    <p class="pre body-copy">{{ snap.customer_challenge }}</p>
+  </section>
+  <section class="card">
+    <h2 class="section-title">The solution</h2>
+    <p class="pre body-copy">{{ snap.technical_description }}</p>
+  </section>
+  <section class="card card-benefits">
+    <h2 class="section-title">Key customer benefits</h2>
+    <p class="pre body-copy">{{ snap.key_benefits }}</p>
+  </section>
+  <section class="card">
+    <h2 class="section-title">Readiness &amp; deployment</h2>
+    <div class="grid-2">
+      <div class="field"><div class="field-label">Level of readiness</div><div class="field-value">{{ READINESS_LABELS[ReadinessLevel(snap.readiness_level)] if snap.readiness_level else '—' }}</div></div>
+      <div class="field"><div class="field-label">Deployed or proposed</div><div class="field-value">{{ DEPLOYMENT_LABELS[DeploymentStatus(snap.deployment_status)] if snap.deployment_status else '—' }}</div></div>
+    </div>
+    {% if snap.readiness_programs %}<div class="field"><div class="field-label">Programs and clients</div><div class="field-value pre">{{ snap.readiness_programs }}</div></div>{% endif %}
+    {% if snap.deployment_detail %}<div class="field"><div class="field-label">Deployment detail</div><div class="field-value pre">{{ snap.deployment_detail }}</div></div>{% endif %}
+    {% if snap.additional_customers %}<div class="field"><div class="field-label">Where else this could apply</div><div class="field-value pre">{{ snap.additional_customers }}</div></div>{% endif %}
+  </section>
+</div>
+
+<aside class="col-side">
+  <section class="card">
+    <h3>Capabilities</h3>
+    <ul class="cap-list">
+      {% for c in snap.capabilities %}<li><span class="tag-area">{{ c.area }}</span><br>{{ c.capability }}{% if c.other_text %} – {{ c.other_text }}{% endif %}</li>{% endfor %}
+    </ul>
+  </section>
+  <section class="card">
+    <h3>Offering owners</h3>
+    <ul class="contacts">
+      {% for c in owners %}<li><span class="muted small">{{ CONTACT_ROLE_LABELS[ContactRole(c.role)] }}</span><br><strong>{{ c.name }}</strong><br><a href="mailto:{{ c.email }}">{{ c.email }}</a>{% if c.phone %} · {{ c.phone }}{% endif %}</li>
+      {% else %}<li class="muted">No owners recorded.</li>{% endfor %}
+    </ul>
+  </section>
+  <section class="card">
+    <h3>Supporting resources</h3>
+    {% if snap.resource_links_notes %}<p class="pre small">{{ snap.resource_links_notes }}</p>{% endif %}
+    {% if sub.active_attachments %}
+    <ul class="attach-list small">
+      {% for a in sub.active_attachments %}<li><a href="/submissions/{{ sub.id }}/attachments/{{ a.id }}/download">{{ a.original_filename }}</a> <span class="muted">{{ a.size_bytes|filesize }}</span></li>{% endfor %}
+    </ul>
+    {% elif not snap.resource_links_notes %}<p class="muted small">No supporting files.</p>{% endif %}
+  </section>
+  <section class="card">
+    <h3>About this record</h3>
+    <dl class="dates">
+      <dt>Reference</dt><dd>{{ sub.display_ref }}</dd>
+      <dt>Approved</dt><dd>{{ sub.approved_at|date }}</dd>
+      {% if sub.published_at %}<dt>Published</dt><dd>{{ sub.published_at|date }}</dd>{% endif %}
+      {% if sub.publish_destination %}<dt>Destination</dt><dd>{{ sub.publish_destination.name }}</dd>{% endif %}
+      <dt>Approved revision</dt><dd>{{ approved_revision }}</dd>
+    </dl>
+  </section>
+</aside>
+</div>
+
+{% if related %}
+<section class="related">
+  <h2>More from {{ sub.business_group.name if sub.business_group else 'the catalogue' }}</h2>
+  <div class="offer-grid offer-grid-compact">
+    {% for r in related %}
+    <article class="offer-card">
+      <a class="offer-card-link" href="/catalogue/{{ r.id }}" aria-label="Open {{ r.offering_name }}"></a>
+      <h3 class="offer-title">{{ r.offering_name }}</h3>
+      <p class="offer-excerpt">{{ r.customer_challenge|excerpt(110) }}</p>
+      <div class="offer-foot"><span class="offer-cta">View offering →</span></div>
+    </article>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+{% endblock %}

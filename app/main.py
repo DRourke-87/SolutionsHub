@@ -10,7 +10,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.config import get_settings
-from app.routers import admin, auth, health, submissions
+from app.routers import admin, auth, catalogue, health, submissions
 from app.services.scheduler import start_scheduler, stop_scheduler
 from app.templating import render
 
@@ -68,6 +68,7 @@ def create_app() -> FastAPI:
 
     app.include_router(health.router)
     app.include_router(auth.router)
+    app.include_router(catalogue.router)
     app.include_router(submissions.router)
     app.include_router(admin.router)
 

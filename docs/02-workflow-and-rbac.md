@@ -40,6 +40,7 @@ Legend: **Y** allowed, **Own** allowed on submissions where the user is recorder
 |---|---|---|---|---|---|---|
 | Create a submission | Y | Y | Y | Y | Y | Y |
 | View own submissions | Y | Y | Y | Y | Y | Y |
+| Browse the catalogue of Approved / Ready to Publish / Published offerings (read-only, approved version) and download their files | Y | Y | Y | Y | Y | Y |
 | View all submissions (list and detail) | – | – | Scope | Scope | Y | Y |
 | Edit fields while in *Submitted* or *Updates Required* | Own | Own | – | – | – | Y |
 | Add / remove attachments while editable | Own | Own | – | – | – | Y |

@@ -20,7 +20,8 @@
     </a>
     <nav class="nav" aria-label="Primary">
       {% if user %}
-        <a href="/" class="{% if request.url.path == '/' %}active{% endif %}">Dashboard</a>
+        <a href="/" class="{% if request.url.path == '/' or request.url.path.startswith('/catalogue') %}active{% endif %}">Catalogue</a>
+        <a href="/dashboard" class="{% if request.url.path == '/dashboard' %}active{% endif %}">My work</a>
         <a href="/submissions" class="{% if request.url.path.startswith('/submissions') and request.url.path != '/submissions/new' %}active{% endif %}">Submissions</a>
         <a href="/submissions/new" class="btn btn-primary btn-sm">New submission</a>
         {% if user.is_admin %}<a href="/admin" class="{% if request.url.path.startswith('/admin') %}active{% endif %}">Admin</a>{% endif %}

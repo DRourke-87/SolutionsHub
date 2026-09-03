@@ -1,0 +1,46 @@
+<div class="gallery-summary">
+  <span>{{ items|length }} offering{{ '' if items|length == 1 else 's' }}{% if filtered %} match your filters{% endif %}</span>
+  {% if filtered %}<a href="/catalogue" class="clear-filters" hx-get="/catalogue" hx-target="#gallery" hx-push-url="true">Clear filters</a>{% endif %}
+</div>
+{% if items %}
+<div class="offer-grid">
+  {% for sub in items %}
+  {% set primary = sub.capabilities[0].capability.area if sub.capabilities else None %}
+  <article class="offer-card">
+    <a class="offer-card-link" href="/catalogue/{{ sub.id }}" aria-label="Open {{ sub.offering_name }}"></a>
+    <div class="offer-card-head">
+      {% if primary %}
+        <span class="offer-area">{% if AREA_ICONS.get(primary.name) %}<img src="{{ AREA_ICONS[primary.name] }}" alt="">{% endif %}{{ primary.name }}</span>
+      {% else %}<span class="offer-area">Offering</span>{% endif %}
+      <span class="badge badge-{{ sub.status }}">{{ sub.status|status_label }}</span>
+    </div>
+    <h3 class="offer-title">{{ sub.offering_name }}</h3>
+    <p class="offer-excerpt">{{ sub.customer_challenge|excerpt(170) }}</p>
+    <ul class="offer-tags">
+      {% for sc in sub.capabilities %}<li>{{ sc.capability.name if not sc.capability.is_other else (sc.other_text or 'Other') }}</li>{% endfor %}
+    </ul>
+    <div class="offer-meta">
+      {% if sub.business_group %}<span>{{ sub.business_group.name }}</span>{% endif %}
+      {% if sub.readiness_level %}<span>{{ READINESS_LABELS[ReadinessLevel(sub.readiness_level)] }}</span>{% endif %}
+      <span>{{ (sub.published_at or sub.approved_at)|date }}</span>
+    </div>
+    <div class="offer-foot">
+      {% set owner = (sub.contacts_by_role(ContactRole.OWNER)|first) %}
+      <span class="offer-owner">{% if owner %}{{ owner.name }}{% else %}{{ sub.created_by_email }}{% endif %}</span>
+      <span class="offer-cta">View offering →</span>
+    </div>
+  </article>
+  {% endfor %}
+</div>
+{% else %}
+<div class="empty gallery-empty">
+  {% if filtered %}
+    <h3>No offerings match</h3>
+    <p class="muted">Try a different capability area or clear the filters.</p>
+  {% elif total == 0 %}
+    <h3>The catalogue is empty for now</h3>
+    <p class="muted">Offerings appear here once they have been reviewed and approved. Be the first to submit one.</p>
+    <a class="btn btn-primary" href="/submissions/new">Submit a new offering</a>
+  {% endif %}
+</div>
+{% endif %}

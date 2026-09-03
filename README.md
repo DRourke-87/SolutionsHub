@@ -28,6 +28,16 @@ application, Alembic migrations, tests, Bicep infrastructure, and GitHub Actions
   services authenticate with keys and connection strings written to App Service settings
 - **Cost:** roughly **$30 USD per month** for a single production environment
 
+## What users see
+
+- **Catalogue** (home): a gallery of approved and published offerings, filterable by capability area (with
+  Amentum's capability icons), business group, readiness and free-text search. Every signed-in user can open an
+  offering's read-only page, download its supporting files and contact the owners.
+- **My work**: the submitter's own records and, for reviewers/approvers/publishers, the queue of items waiting on them.
+- **Submissions**: the working list and full workflow record (restricted to contacts and staff).
+
+Run `python -m scripts.seed_demo` against a non-production database to populate sample offerings for a demo.
+
 ## Quick start (local)
 
 ```bash
