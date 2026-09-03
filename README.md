@@ -7,6 +7,14 @@ Azure-hosted web application that works for users on two unconnected corporate d
 This repository contains the Phase 0 scoping documents and the **Phase 1 deployable MVP**: the FastAPI
 application, Alembic migrations, tests, Bicep infrastructure, and GitHub Actions workflows.
 
+## Demo
+
+[![SolutionsHub walkthrough video](docs/media/solutionshub-walkthrough-poster.jpg)](docs/media/solutionshub-walkthrough.mp4)
+
+**[Watch the 3-minute walkthrough](docs/media/solutionshub-walkthrough.mp4)** – sign-in, the catalogue landing page,
+an offering page, the intake form, and the reviewer → approver → publisher route through to publication.
+(GitHub plays the MP4 in the browser when you open the file.)
+
 ## Documents
 
 | Document | What it covers |
