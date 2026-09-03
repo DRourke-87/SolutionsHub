@@ -1,8 +1,10 @@
 name: Deploy to Azure App Service
 
-# Requires a federated (OIDC) credential on an Entra app registration with Website Contributor on the
-# web app, plus repository secrets AZURE_CLIENT_ID, AZURE_TENANT_ID, AZURE_SUBSCRIPTION_ID and the
-# repository variable AZURE_WEBAPP_NAME (from the infra deployment output).
+# Authenticates with the web app's publish profile (works with Contributor-only access; no Entra app
+# registration or role assignment needed).
+#   az webapp deployment list-publishing-profiles -g <rg> -n <webAppName> --xml
+# Store the XML as the repository secret AZURE_WEBAPP_PUBLISH_PROFILE and set the repository variable
+# AZURE_WEBAPP_NAME to the web app name (infra deployment output `webAppName`).
 
 on:
   push:
@@ -10,7 +12,6 @@ on:
   workflow_dispatch:
 
 permissions:
-  id-token: write
   contents: read
 
 concurrency:
@@ -35,20 +36,15 @@ jobs:
         run: |
           mkdir -p dist
           zip -r dist/app.zip app alembic alembic.ini requirements.txt startup.sh -x '*/__pycache__/*' '*.pyc'
-      - uses: azure/login@v2
-        with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
       - uses: azure/webapps-deploy@v3
         with:
           app-name: ${{ vars.AZURE_WEBAPP_NAME }}
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
           package: dist/app.zip
       - name: Smoke test
         run: |
-          for i in 1 2 3 4 5 6 7 8 9 10; do
-            if curl -fsS "https://${{ vars.AZURE_WEBAPP_NAME }}.azurewebsites.net/health"; then exit 0; fi
+          for i in $(seq 1 12); do
+            if curl -fsS "https://${{ vars.AZURE_WEBAPP_NAME }}.azurewebsites.net/health"; then echo; exit 0; fi
             echo "waiting for app to start ($i)"; sleep 20
           done
-          echo "health check did not pass (note: the runner IP must be in the access-restriction allowlist for this step to succeed)"
-          exit 0
+          echo "health check did not pass"; exit 1

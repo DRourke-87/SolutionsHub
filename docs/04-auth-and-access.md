@@ -1,8 +1,8 @@
 # 04 – Authentication and Access Control
 
-This document describes how SolutionsHub controls who can reach the application, who a user is, and what
-they are allowed to do, given that Entra ID / corporate SSO is unavailable across the two unconnected
-domains and the only network control is the VPN egress IP.
+This document describes how SolutionsHub establishes who a user is and what they are allowed to do, given
+that Entra ID / corporate SSO is unavailable across the two unconnected domains and the application is
+reachable from the public internet by decision.
 
 ---
 
@@ -10,35 +10,36 @@ domains and the only network control is the VPN egress IP.
 
 | Layer | Question answered | Mechanism |
 |---|---|---|
-| 1. Network edge | Is this request coming from inside one of our VPNs? | App Service access restrictions (IP allowlist), applied to the main site and the SCM site |
+| 1. Network edge | (none by decision) Anyone can reach the sign-in page | Public HTTPS endpoint; every other route requires a session |
 | 2. Transport | Is the connection protected? | HTTPS only, TLS 1.2 minimum, HSTS |
 | 3. Identity | Which work mailbox does this person control? | Magic-link email sign-in on an allowed-domain address |
 | 4. Session | Is this browser still the same signed-in person? | Signed, HttpOnly, Secure cookie backed by a server-side session row |
 | 5. Authorization | May this person perform this action on this record? | App-managed roles plus per-record ownership, enforced server-side |
 | 6. Audit | What happened and who did it? | Append-only `workflow_events` including sign-ins, role changes, approvals |
 
-The design intentionally does not rely on any single layer. A user who is on the VPN but cannot receive
-email at an allowed domain cannot sign in; a user with a valid session whose IP leaves the VPN is blocked
-at the edge on the next request.
+With no network layer, identity carries the load: nobody can do anything beyond requesting a sign-in link
+without controlling a mailbox on an allowed Amentum domain. The sign-in page is therefore hardened as a
+public surface (uniform responses, rate limits, single-use short-lived tokens).
 
 ---
 
-## 2. Network edge: App Service access restrictions
+## 2. Network edge: public endpoint
 
-- **Allow rules:** one rule per VPN egress IP range for Domain A and Domain B (CIDR). Priority 100–199.
-- **Deny all:** the implicit default rule denies everything else with HTTP 403.
-- **SCM site (Kudu / deployment endpoint):** does **not** inherit the main-site rules by default. Configure
-  it explicitly to allow only the GitHub Actions deploy path (via OIDC, which uses Azure Resource Manager
-  and does not hit the SCM site) plus, optionally, an administrator IP. Deny the rest.
-- **Custom 403 page:** the app cannot intercept an edge 403, so document for users that a 403 means
-  "connect to the VPN". Keep the hostname memorable.
-- **Operational note:** the IP list is a Bicep parameter. Changing it is a config deploy, not a code
-  change. Add a monitor on 403 counts to detect a changed egress IP quickly.
+The sponsor decided that anyone may reach the endpoint but only Amentum mailboxes may sign in, so there is no
+IP allowlist. What is exposed anonymously:
 
-What this does **not** do: it does not identify individuals, and it does not stop one VPN user from
-attempting to act as another. Layers 3–5 handle that.
+| Route | Purpose | Protection |
+|---|---|---|
+| `GET /login`, `POST /login` | Request a sign-in link | CSRF token, per-email (5/hour) and per-IP (30/hour) limits, identical response whether or not the address is allowed |
+| `GET /auth/verify` | Consume a sign-in link | Token is single-use, hashed at rest, 15-minute lifetime; failed attempts limited per IP (10/hour) |
+| `GET /health` | Platform health probe | Returns only `ok`/`degraded` |
+| `/static/*` | CSS, JS, logo | Static files |
 
----
+Everything else returns a redirect to sign-in without a valid session. HTTPS is enforced, TLS 1.2 minimum,
+HSTS and a strict Content Security Policy are set on every response, and FTP is disabled.
+
+If probing or spam becomes a nuisance, Azure Front Door with WAF (or re-enabling App Service IP access
+restrictions for a known set of ranges) can be added without application changes.
 
 ## 3. Identity: magic-link email sign-in
 
@@ -46,7 +47,7 @@ attempting to act as another. Layers 3–5 handle that.
 
 - Proves control of a work mailbox on an allowed domain, which is the only identity anchor both domains
   share.
-- Zero provisioning: any employee on the VPN can submit immediately; their email is captured as the
+- Zero provisioning: any employee with an Amentum mailbox can submit immediately; their email is captured as the
   submitter identity and used for updates, satisfying the "simple for anyone, but tracked" requirement.
 - No passwords to store, rotate, reset, or leak.
 - Every notification email already carries a link into the app, so the sign-in experience and the
@@ -57,17 +58,13 @@ attempting to act as another. Layers 3–5 handle that.
 ```mermaid
 sequenceDiagram
     autonumber
-    participant B as Browser (on VPN)
-    participant E as App Service edge
+    participant B as Browser
     participant A as SolutionsHub app
     participant D as PostgreSQL
     participant M as Communication Services Email
     participant X as User mailbox
 
-    B->>E: GET /submissions/123
-    E->>E: Source IP in allowlist?
-    E-->>B: 403 if not on VPN
-    E->>A: forward request
+    B->>A: GET /submissions/123
     A-->>B: 302 to /login?next=/submissions/123 (no session)
     B->>A: POST /login (email)
     A->>A: Normalise email, check allowed domains, rate limit
@@ -76,8 +73,7 @@ sequenceDiagram
     M-->>X: Email delivered
     A-->>B: "If that address is allowed, a link has been sent" (same response either way)
     X->>B: User clicks link
-    B->>E: GET /auth/verify?t=token
-    E->>A: forward (IP re-checked)
+    B->>A: GET /auth/verify?t=token
     A->>D: Lookup sha256(token), verify not used, not expired
     A->>D: Mark used_at, upsert users, insert sessions
     A-->>B: Set-Cookie session (signed, HttpOnly, Secure, SameSite=Lax) and 302 to next
@@ -93,7 +89,7 @@ sequenceDiagram
 | Token | 32 random bytes from the OS CSPRNG, URL-safe base64 in the link; only the SHA-256 hash is stored |
 | Lifetime | 15 minutes |
 | Use | Single use; consumed atomically on first valid verify |
-| Binding | Bound to the requested email; optionally bound to the requesting IP range (configurable, off by default because VPN NAT can vary) |
+| Binding | Bound to the requested email; not bound to the requesting IP (users may open the link on another device or network) |
 | Redirect | `next` path is validated to be a relative path on this host |
 | Outstanding tokens | Requesting a new link invalidates earlier unused tokens for that email |
 | Cleanup | Expired tokens purged 24 hours after expiry |
@@ -121,11 +117,11 @@ Sign-in depends on email arriving promptly. Phase 1 must:
 
 | Property | Value |
 |---|---|
-| Cookie | `__Host-sh_session`; `Secure`, `HttpOnly`, `SameSite=Lax`, `Path=/`; value is a random session id signed with a key held in Key Vault |
+| Cookie | `__Host-sh_session`; `Secure`, `HttpOnly`, `SameSite=Lax`, `Path=/`; value is a random session id signed with the `SECRET_KEY` application setting |
 | Server-side record | `sessions` row with email, created, last seen, expiry, IP, user agent. Allows revocation and "sign out everywhere". |
 | Lifetime | 8 hours sliding (extends on activity, up to 24 hours absolute) by default; "Remember me" extends to 30 days absolute |
 | Revocation | User sign-out; Admin "disable user" revokes all sessions; role changes take effect on next request (roles are loaded per request, not cached in the cookie) |
-| Key rotation | Signing key versioned in Key Vault; app accepts the current and previous key during rotation |
+| Key rotation | Change the `SECRET_KEY` setting (App Service restarts); all users sign in again via email. Dual-key rotation can be added later. |
 | CSRF | Synchroniser token on every state-changing form; HTMX requests carry the token in a header; SameSite=Lax as a second layer |
 
 ---
@@ -183,21 +179,21 @@ Rate-limit counters live in the database (small volume) so no extra cache servic
 
 ## 7. Application and platform hardening
 
-- Managed identity for Blob Storage and Key Vault. The PostgreSQL connection string (generated password,
-  `sslmode=require`) and the Communication Services connection string are Key Vault secrets consumed through
-  App Service Key Vault references, so they never appear in app settings, source control or CI logs.
-- Key Vault holds the session signing key and any third-party credential; App Service reads via Key Vault
-  references so secrets never appear in the portal's app-settings view in clear text.
+- Service credentials (PostgreSQL password, storage account key, Communication Services connection string)
+  are generated or read by the Bicep template and written to App Service application settings, which are
+  encrypted at rest and visible only to identities with write access to the web app. They never appear in
+  source control or CI logs. Key Vault + managed identity is the upgrade path once the team can create role
+  assignments.
 - Security headers: `Content-Security-Policy` (self only, nonce for the HTMX script), `X-Content-Type-Options`,
   `Referrer-Policy`, `Permissions-Policy`, HSTS.
 - Dependency scanning (pip-audit or Dependabot) in CI; pinned Python runtime on App Service.
 - Diagnostic logs and Application Insights with PII scrubbing of email addresses in traces (email is kept
   in the audit table, not in telemetry).
-- Storage account: shared-key access disabled (identity/SAS only), minimum TLS 1.2, soft delete and
-  versioning on.
-- PostgreSQL Flexible Server: TLS required, password authentication with a Key Vault-held secret, firewall
-  rule limited to Azure services. Hardening steps: restrict to the web app's outbound IPs or VNet
-  integration, and switch to Entra (managed identity) authentication.
+- Storage account: shared-key access enabled (the app authenticates with the account key), no public blob
+  access, minimum TLS 1.2, soft delete and versioning on.
+- PostgreSQL Flexible Server: TLS required, password authentication (password generated by the template and
+  held in the `DATABASE_URL` setting), firewall rule limited to Azure services. Hardening step: restrict to
+  the web app's outbound IPs or VNet integration.
 
 ---
 
@@ -205,7 +201,7 @@ Rate-limit counters live in the database (small volume) so no extra cache servic
 
 | Threat | Mitigation |
 |---|---|
-| Someone off-VPN reaches the app | Edge IP allowlist returns 403 before the app sees the request. |
+| Anyone on the internet reaches the app | Only the sign-in page is anonymous; it discloses nothing, is rate limited, and issues links only to allowed domains. |
 | VPN user tries to sign in as a colleague | They would need to read the colleague's mailbox; token is single-use, 15 minutes, hashed at rest. |
 | Forwarded sign-in email | Link works only once and expires quickly; every sign-in is logged with IP and user agent; suspicious sign-ins are visible to Admins. |
 | Session cookie theft via XSS | HttpOnly cookie; strict CSP; templates auto-escape; HTMX responses are server-rendered. |
@@ -214,7 +210,7 @@ Rate-limit counters live in the database (small volume) so no extra cache servic
 | Approver approving their own offering | Explicit separation-of-duties rule. |
 | Malicious attachment | Type and size limits, MIME sniffing, never executed or rendered inline server-side; downloads served with `Content-Disposition: attachment`; optional Defender for Storage malware scanning if Cyber requires it (adds cost). |
 | Email enumeration | Uniform login response; rate limits. |
-| Lost or rotated signing key | Key Vault versioning; dual-key acceptance during rotation; worst case all users re-sign-in via email. |
+| Lost or rotated signing key | All users re-sign-in via email; no data is lost. |
 | Data loss | SQL point-in-time restore (7 days), Blob soft delete and versioning, immutable approval snapshots. |
 
 ---
@@ -223,7 +219,7 @@ Rate-limit counters live in the database (small volume) so no extra cache servic
 
 | Question | Reference |
 |---|---|
-| How is access restricted to Amentum users? | Sections 2 and 3 |
+| How is access restricted to Amentum users? | Section 3 (identity) – the endpoint itself is public, section 2 |
 | How are approvers authenticated and authorised? | Sections 3, 5 |
 | Where is data stored and how is it encrypted? | Doc 01 section 7; this doc section 7 |
 | Is there an audit trail of approvals? | Doc 02 section 6 |

@@ -8,15 +8,18 @@ How to run SolutionsHub locally, deploy it to Azure, and operate it.
 
 | Resource | Bicep name | Purpose |
 |---|---|---|
-| App Service Plan (B1 Linux) + Web App (Python 3.12) | `asp-…`, `app-…` | The application, with IP access restrictions and a system-assigned managed identity |
+| App Service Plan (B1 Linux) + Web App (Python 3.12) | `asp-…`, `app-…` | The application (public HTTPS endpoint) |
 | Azure Database for PostgreSQL Flexible Server (B1ms) | `psql-…` | Application database `solutionshub` |
 | Storage account + `attachments` container | `st…` | Uploaded files (private, soft delete, versioning) |
-| Key Vault | `kv-…` | `DATABASE-URL`, `SECRET-KEY`, `ACS-CONNECTION-STRING` |
 | Communication Services + Email Service (Azure-managed domain) | `acs-…`, `email-…` | Sign-in links and workflow notifications |
 | Log Analytics + Application Insights | `log-…`, `appi-…` | Telemetry with a daily cap |
-| Role assignments | – | Web app → Key Vault Secrets User, Storage Blob Data Contributor |
 
 Everything is in `infra/main.bicep`; environment-specific values are in `infra/main.bicepparam`.
+
+The template needs only **Contributor** on the resource group: it creates no role assignments and no Key
+Vault. Service credentials (PostgreSQL password, storage account key, Communication Services connection
+string, session signing key) are generated or read by the template and written to App Service application
+settings.
 
 ---
 
@@ -50,46 +53,51 @@ TEST_DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:5432/solution
 
 ## 3. One-time Azure setup
 
-1. **Resource group**: `az group create -n rg-solutionshub-prod -l eastus`.
-2. **Deployment identity for GitHub Actions** (OIDC, no stored secrets):
-   - Create an Entra app registration, e.g. `gh-solutionshub-deploy`, and a federated credential for
-     `repo:<org>/<repo>:environment:production` (subject) with issuer `https://token.actions.githubusercontent.com`.
-   - Grant it **Contributor** and **User Access Administrator** on the resource group (the template creates
-     role assignments). After the first infra deployment you can reduce it to **Website Contributor** on the
-     web app for app deploys only.
-3. **GitHub repository configuration**:
-   - Secrets: `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`.
-   - Environment `production` (optionally with required reviewers).
-   - Variable `AZURE_WEBAPP_NAME` = the `webAppName` output of the infra deployment.
-4. **Parameters**: edit `infra/main.bicepparam`:
-   - `allowedIpRanges` – the VPN egress CIDR ranges for both corporate domains.
+1. **Resource group** (or use the one you have Contributor on): `az group create -n rg-solutionshub-prod -l eastus`.
+2. **Parameters**: edit `infra/main.bicepparam`:
    - `bootstrapAdminEmail` – the first administrator.
-   - `keyVaultAdminObjectId` – (optional) object id of the operator or group who should read/rotate secrets.
+   - `allowedEmailDomains` – already set to the three Amentum domains.
+3. **GitHub repository configuration** (after the infra deployment, section 4):
+   - Secret `AZURE_WEBAPP_PUBLISH_PROFILE` – output of
+     `az webapp deployment list-publishing-profiles -g <rg> -n <webAppName> --xml`.
+   - Variable `AZURE_WEBAPP_NAME` – the `webAppName` output of the infra deployment.
+   - Environment `production` (optionally with required reviewers).
 
----
+No Entra app registration, service principal or role assignment is required.
 
 ## 4. Deploy the infrastructure
 
-Run the **Infrastructure (Bicep)** workflow (what-if first, then with `apply = true`), or from a terminal:
+From a workstation with the Azure CLI, signed in as a Contributor on the resource group:
 
 ```bash
 az deployment group what-if -g rg-solutionshub-prod -f infra/main.bicep -p infra/main.bicepparam
 az deployment group create  -g rg-solutionshub-prod -f infra/main.bicep -p infra/main.bicepparam -o table
 ```
 
-Outputs include `webAppName`, `webAppUrl`, `keyVaultName`, `postgresHost` and `emailSender`. Put
+Outputs include `webAppName`, `webAppUrl`, `postgresHost`, `storageAccountName` and `emailSender`. Put
 `webAppName` into the `AZURE_WEBAPP_NAME` repository variable.
 
-The template generates the PostgreSQL password and the session signing key and stores them in Key Vault.
-Re-running the template regenerates the default values, so on subsequent runs pass the existing values or
-leave the secrets untouched by supplying `-p postgresAdminPassword=… -p appSecretKey=…` from Key Vault.
+The **Infrastructure (Bicep)** GitHub workflow does the same but needs a service principal or OIDC credential
+with Contributor on the group; creating that credential's role assignment needs Owner / User Access
+Administrator, so it is optional.
+
+The template generates the PostgreSQL password and the session signing key on the first run and writes them
+to the web app's settings. Re-running with the defaults would regenerate them, so on subsequent runs pass the
+existing values, read from the current app settings:
+
+```bash
+SECRET=$(az webapp config appsettings list -g <rg> -n <webAppName> --query "[?name=='SECRET_KEY'].value" -o tsv)
+# The PostgreSQL password is inside DATABASE_URL; keep a copy from the first deployment.
+az deployment group create -g <rg> -f infra/main.bicep -p infra/main.bicepparam -p appSecretKey="$SECRET" -p postgresAdminPassword="$PG_PW"
+```
 
 ---
 
 ## 5. Deploy the application
 
 Push to `main` (or run the **Deploy to Azure App Service** workflow). The workflow runs lint and tests,
-zips `app/`, `alembic/`, `requirements.txt` and `startup.sh`, and deploys with `azure/webapps-deploy`.
+zips `app/`, `alembic/`, `requirements.txt` and `startup.sh`, and deploys with `azure/webapps-deploy` using
+the publish profile.
 App Service (Oryx) installs `requirements.txt`; `startup.sh` then runs `alembic upgrade head`, seeds
 reference data, and starts Gunicorn with Uvicorn workers.
 
@@ -100,14 +108,13 @@ zip -r app.zip app alembic alembic.ini requirements.txt startup.sh -x '*/__pycac
 az webapp deploy -g rg-solutionshub-prod -n <webAppName> --src-path app.zip --type zip
 ```
 
-First start takes a few minutes while dependencies install. Check `https://<webAppName>.azurewebsites.net/health`
-from a VPN-connected machine (anything else receives HTTP 403 from the access restrictions).
+First start takes a few minutes while dependencies install. Check `https://<webAppName>.azurewebsites.net/health`.
 
 ---
 
 ## 6. First sign-in and configuration
 
-1. From the VPN, open the site and sign in with the bootstrap admin address. The first sign-in grants the
+1. Open the site and sign in with the bootstrap admin address. The first sign-in grants the
    Admin role automatically (only while no other Admin exists).
 2. **Admin → Reference data**: replace the placeholder Business Groups with the real list; confirm
    publishing destinations.
@@ -137,12 +144,13 @@ Delivery status for every message is visible under **Admin → Notifications**, 
 
 | Task | How |
 |---|---|
-| Change the VPN IP allowlist | Edit `allowedIpRanges` in `infra/main.bicepparam` and re-run the infra workflow (or `az webapp config access-restriction add`). |
 | View logs | `az webapp log tail -g <rg> -n <webAppName>`; Application Insights → Failures / Performance / Logs. |
 | Restart | `az webapp restart -g <rg> -n <webAppName>` (migrations re-run idempotently on start). |
 | Scale up | App Service Plan B1 → B2; PostgreSQL B1ms → B2s. Both are portal or CLI settings, no code change. |
-| Rotate the session key | Add a new version of `SECRET-KEY` in Key Vault and restart. Users sign in again via email. |
-| Rotate the DB password | Reset on the PostgreSQL server, update `DATABASE-URL` in Key Vault, restart. |
+| Rotate the session key | Update the `SECRET_KEY` app setting (App Service restarts automatically). Users sign in again via email. |
+| Rotate the DB password | Reset on the PostgreSQL server, update the `DATABASE_URL` app setting. |
+| Rotate the storage key | Regenerate key2, update `AZURE_STORAGE_CONNECTION_STRING`, then regenerate key1. |
+| Restrict access by network later | `az webapp config access-restriction add` (App Service IP restrictions) or Front Door + WAF; no app change needed. |
 | Backups | PostgreSQL PITR (7 days); Blob soft delete and versioning (30 days). |
 | Scheduler | Runs inside the web app. Jobs: deliver notifications (every minute), action reminders (hourly, weekdays), six-month review (hourly), housekeeping (03:05 UTC). A PostgreSQL advisory lock prevents duplicate runs if the plan is scaled out. |
 | Disable a user | Admin → Users & roles → Disable. Revokes all sessions and blocks new sign-in links. |
@@ -157,12 +165,12 @@ All settings are environment variables (App Service application settings). Defau
 |---|---|---|
 | `APP_ENV` | `dev` shows sign-in links on screen with the console backend; `prod` does not | `prod` |
 | `BASE_URL` | Used to build links in emails; must be the public HTTPS URL | `https://<webAppName>.azurewebsites.net` |
-| `SECRET_KEY` | Signs session and CSRF material | Key Vault reference |
-| `DATABASE_URL` | SQLAlchemy URL, `postgresql+psycopg://…?sslmode=require` | Key Vault reference |
+| `SECRET_KEY` | Signs session and CSRF material | generated by the template |
+| `DATABASE_URL` | SQLAlchemy URL, `postgresql+psycopg://…?sslmode=require` | built by the template |
 | `ALLOWED_EMAIL_DOMAINS` | Comma-separated sign-in domains | `amentum.com,global.amentum.com,amentumcms.com` |
 | `BOOTSTRAP_ADMIN_EMAIL` | First admin | set by parameter |
-| `EMAIL_BACKEND` / `ACS_CONNECTION_STRING` / `ACS_SENDER` | Email delivery | `acs`, Key Vault reference, verified sender |
-| `STORAGE_BACKEND` / `AZURE_STORAGE_ACCOUNT_URL` / `AZURE_STORAGE_CONTAINER` | Attachments | `azure`, blob endpoint, `attachments` |
+| `EMAIL_BACKEND` / `ACS_CONNECTION_STRING` / `ACS_SENDER` | Email delivery | `acs`, from `listKeys`, verified sender |
+| `STORAGE_BACKEND` / `AZURE_STORAGE_CONNECTION_STRING` / `AZURE_STORAGE_CONTAINER` | Attachments | `azure`, account connection string, `attachments` |
 | `MAX_ATTACHMENTS_PER_SUBMISSION`, `MAX_ATTACHMENT_MB`, `ALLOWED_ATTACHMENT_EXTENSIONS` | Upload limits | 10, 25, see defaults |
 | `REMINDER_*_DAYS`, `REVIEW_CYCLE_MONTHS`, `REVIEW_NOTICE_DAYS_BEFORE` | Workflow timing | see defaults |
 | `SCHEDULER_ENABLED` | Run background jobs in this instance | `true` |
@@ -174,8 +182,8 @@ All settings are environment variables (App Service application settings). Defau
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
-| HTTP 403 with an Azure-styled page before sign-in | Client IP not in the allowlist | Connect to the VPN; check egress IP against `allowedIpRanges`. |
+| "Too many sign-in requests" (HTTP 429) | Rate limit hit for the address or network | Wait an hour, or an Admin can clear rows in `rate_limit_counters`. |
 | "Invalid or missing CSRF token" | Page left open past the session, or cookies blocked | Reload the page and retry. |
 | Sign-in email never arrives | Sender domain not trusted by the recipient mail gateway | See section 7; check Admin → Notifications for the delivery status. |
-| App fails to start after deploy | Migration error or missing setting | `az webapp log tail`; the startup script prints each step. Key Vault references need the web app's identity to have **Key Vault Secrets User**. |
-| `/health` reports `database` error | PostgreSQL firewall or password | Check the firewall rule and the `DATABASE-URL` secret. |
+| App fails to start after deploy | Migration error or missing setting | `az webapp log tail`; the startup script prints each step. Check `DATABASE_URL` and `AZURE_STORAGE_CONNECTION_STRING` are present in app settings. |
+| `/health` reports `database` error | PostgreSQL firewall or password | Check the firewall rule and the `DATABASE_URL` setting. |

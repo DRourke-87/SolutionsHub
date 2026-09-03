@@ -62,13 +62,22 @@ class LocalStorage(Storage):
 
 
 class AzureBlobStorage(Storage):
-    def __init__(self, account_url: str, container: str) -> None:
-        from azure.identity import DefaultAzureCredential
+    """Azure Blob Storage. Uses the account connection string (key auth) when given, else managed identity."""
+
+    def __init__(self, container: str, connection_string: str | None = None, account_url: str | None = None) -> None:
         from azure.storage.blob import BlobServiceClient
 
-        self._container = BlobServiceClient(account_url, credential=DefaultAzureCredential()).get_container_client(
-            container
-        )
+        if connection_string:
+            service = BlobServiceClient.from_connection_string(connection_string)
+        elif account_url:
+            from azure.identity import DefaultAzureCredential
+
+            service = BlobServiceClient(account_url, credential=DefaultAzureCredential())
+        else:
+            raise RuntimeError(
+                "STORAGE_BACKEND=azure requires AZURE_STORAGE_CONNECTION_STRING or AZURE_STORAGE_ACCOUNT_URL"
+            )
+        self._container = service.get_container_client(container)
 
     def save(self, path: str, data: BinaryIO, content_type: str) -> None:
         from azure.storage.blob import ContentSettings
@@ -102,7 +111,9 @@ def get_storage() -> Storage:
         return _override
     s = get_settings()
     if s.storage_backend.lower() == "azure":
-        if not s.azure_storage_account_url:
-            raise RuntimeError("STORAGE_BACKEND=azure requires AZURE_STORAGE_ACCOUNT_URL")
-        return AzureBlobStorage(s.azure_storage_account_url, s.azure_storage_container)
+        return AzureBlobStorage(
+            s.azure_storage_container,
+            connection_string=s.azure_storage_connection_string,
+            account_url=s.azure_storage_account_url,
+        )
     return LocalStorage(s.local_storage_path)

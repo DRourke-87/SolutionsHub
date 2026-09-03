@@ -209,15 +209,13 @@ required when "Other" is selected.
 
 ## 6. Attachment storage (Blob)
 
-- One storage account, one private container `attachments`. No anonymous access; public network access
-  can remain enabled because the account only accepts requests authenticated with the app's managed
-  identity or short-lived SAS tokens.
+- One storage account, one private container `attachments`. No anonymous access; the app authenticates with
+  the account key held in App Service settings.
 - Blob path: `submissions/{submission_id}/{attachment_id}/{sanitised_original_filename}`.
 - Uploads are streamed through the app (validates size, count, and content type, computes SHA-256) and
-  written with the managed identity. For files over a configurable threshold the app can instead issue a
-  10-minute user-delegation SAS for direct browser upload.
-- Downloads are served via a 5-minute read-only SAS generated per request, after the app checks the
-  user's permission on the parent submission, and logged to `page_views` with `kind = download`.
+  written with the storage account key. Direct-to-blob SAS uploads are a possible later optimisation.
+- Downloads are streamed through the app after it checks the user's permission on the parent submission, and
+  logged to `page_views` with `kind = download`.
 - Soft delete (30 days) and blob versioning enabled. Removing an attachment in the app sets
   `attachments.deleted_at` and deletes the blob (recoverable via soft delete).
 - Lifecycle policy: blobs for archived submissions move to Cool tier after 90 days.

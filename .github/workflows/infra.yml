@@ -1,7 +1,9 @@
 name: Infrastructure (Bicep)
 
-# Manual: what-if by default, deploy when 'apply' is true. Needs the same OIDC credential as deploy.yml
-# with Contributor + User Access Administrator (for role assignments) on the resource group.
+# Optional. Running Bicep from GitHub needs an identity Azure will accept (a service principal or OIDC
+# federated credential with Contributor on the resource group). Creating that identity's role assignment
+# needs Owner / User Access Administrator, so with Contributor-only access run the same two commands from
+# a workstation after `az login` instead (see docs/05-deployment.md).
 
 on:
   workflow_dispatch:

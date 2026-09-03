@@ -1,4 +1,6 @@
 // SolutionsHub – Azure infrastructure (resource-group scope).
+// Designed to deploy with *Contributor* on the resource group only: no role assignments, no Key Vault RBAC.
+// Services authenticate to each other with keys/connection strings passed as App Service settings.
 // Deploy:  az deployment group create -g <rg> -f infra/main.bicep -p infra/main.bicepparam
 targetScope = 'resourceGroup'
 
@@ -13,9 +15,6 @@ param environment string = 'prod'
 
 param location string = resourceGroup().location
 
-@description('VPN egress IP ranges (CIDR) allowed to reach the web app. Everything else is denied.')
-param allowedIpRanges array
-
 @description('Comma-separated list of email domains permitted to sign in.')
 param allowedEmailDomains string = 'amentum.com,global.amentum.com,amentumcms.com'
 
@@ -26,15 +25,12 @@ param bootstrapAdminEmail string
 param postgresAdminLogin string = 'solhubadmin'
 
 @secure()
-@description('PostgreSQL administrator password. Generated if not supplied; stored in Key Vault.')
+@description('PostgreSQL administrator password. Generated on first deployment if not supplied. Pass the existing value on re-deployments.')
 param postgresAdminPassword string = '${uniqueString(newGuid())}${uniqueString(newGuid())}Aa1!'
 
 @secure()
-@description('Application secret used to sign session cookies. Generated if not supplied; stored in Key Vault.')
+@description('Application secret used to sign session cookies. Generated on first deployment if not supplied. Pass the existing value on re-deployments (changing it signs everyone out).')
 param appSecretKey string = '${newGuid()}${newGuid()}'
-
-@description('Object id of the operator (user or group) who should manage Key Vault secrets. Optional.')
-param keyVaultAdminObjectId string = ''
 
 @description('Application Insights / Log Analytics daily ingestion cap in GB (keeps the workload inside the free grant).')
 param logDailyCapGb int = 1
@@ -52,7 +48,6 @@ resource logs 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
     sku: { name: 'PerGB2018' }
     retentionInDays: 30
     workspaceCapping: { dailyQuotaGb: logDailyCapGb }
-    features: { enableLogAccessUsingOnlyResourcePermissions: true }
   }
 }
 
@@ -65,8 +60,6 @@ resource appInsights 'Microsoft.Insights/components@2020-02-02' = {
     Application_Type: 'web'
     WorkspaceResourceId: logs.id
     IngestionMode: 'LogAnalytics'
-    publicNetworkAccessForIngestion: 'Enabled'
-    publicNetworkAccessForQuery: 'Enabled'
   }
 }
 
@@ -81,7 +74,7 @@ resource storage 'Microsoft.Storage/storageAccounts@2023-05-01' = {
     accessTier: 'Hot'
     minimumTlsVersion: 'TLS1_2'
     allowBlobPublicAccess: false
-    allowSharedKeyAccess: false
+    allowSharedKeyAccess: true // the app authenticates with the account key (no RBAC available)
     supportsHttpsTrafficOnly: true
     publicNetworkAccess: 'Enabled'
     networkAcls: { defaultAction: 'Allow', bypass: 'AzureServices' }
@@ -104,21 +97,8 @@ resource attachmentsContainer 'Microsoft.Storage/storageAccounts/blobServices/co
   properties: { publicAccess: 'None' }
 }
 
-// --------------------------------------------------------------------------- key vault
-resource kv 'Microsoft.KeyVault/vaults@2023-07-01' = {
-  name: 'kv-${suffix}-${uniq}'
-  location: location
-  tags: tags
-  properties: {
-    tenantId: subscription().tenantId
-    sku: { family: 'A', name: 'standard' }
-    enableRbacAuthorization: true
-    enableSoftDelete: true
-    softDeleteRetentionInDays: 30
-    enablePurgeProtection: true
-    publicNetworkAccess: 'Enabled'
-  }
-}
+var storageKey = storage.listKeys().keys[0].value
+var storageConnectionString = 'DefaultEndpointsProtocol=https;AccountName=${storage.name};AccountKey=${storageKey};EndpointSuffix=${az.environment().suffixes.storage}'
 
 // --------------------------------------------------------------------------- postgresql
 resource postgres 'Microsoft.DBforPostgreSQL/flexibleServers@2023-12-01-preview' = {
@@ -145,12 +125,14 @@ resource postgresDb 'Microsoft.DBforPostgreSQL/flexibleServers/databases@2023-12
 }
 
 // Allows connections from Azure services (the App Service outbound IPs). Tighten to the web app's
-// outbound IPs or move to VNet integration as a hardening step.
+// outbound IPs as a hardening step.
 resource postgresAzureRule 'Microsoft.DBforPostgreSQL/flexibleServers/firewallRules@2023-12-01-preview' = {
   parent: postgres
   name: 'AllowAzureServices'
   properties: { startIpAddress: '0.0.0.0', endIpAddress: '0.0.0.0' }
 }
+
+var databaseUrl = 'postgresql+psycopg://${postgresAdminLogin}:${uriComponent(postgresAdminPassword)}@${postgres.properties.fullyQualifiedDomainName}:5432/solutionshub?sslmode=require'
 
 // --------------------------------------------------------------------------- communication services (email)
 resource emailService 'Microsoft.Communication/emailServices@2023-04-01' = {
@@ -175,27 +157,6 @@ resource acs 'Microsoft.Communication/communicationServices@2023-04-01' = {
   properties: { dataLocation: 'United States', linkedDomains: [emailDomain.id] }
 }
 
-// --------------------------------------------------------------------------- secrets
-resource secretDbUrl 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
-  parent: kv
-  name: 'DATABASE-URL'
-  properties: {
-    value: 'postgresql+psycopg://${postgresAdminLogin}:${uriComponent(postgresAdminPassword)}@${postgres.properties.fullyQualifiedDomainName}:5432/solutionshub?sslmode=require'
-  }
-}
-
-resource secretAppKey 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
-  parent: kv
-  name: 'SECRET-KEY'
-  properties: { value: appSecretKey }
-}
-
-resource secretAcs 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
-  parent: kv
-  name: 'ACS-CONNECTION-STRING'
-  properties: { value: acs.listKeys().primaryConnectionString }
-}
-
 // --------------------------------------------------------------------------- app service
 resource plan 'Microsoft.Web/serverfarms@2023-12-01' = {
   name: 'asp-${suffix}'
@@ -206,20 +167,13 @@ resource plan 'Microsoft.Web/serverfarms@2023-12-01' = {
   properties: { reserved: true }
 }
 
-var ipRules = [for (cidr, i) in allowedIpRanges: {
-  name: 'vpn-${i}'
-  ipAddress: cidr
-  action: 'Allow'
-  priority: 100 + i
-  description: 'Corporate VPN egress'
-}]
-
+// Publicly reachable by design: the only anonymous surface is the sign-in page, and sign-in is limited to
+// the allowed email domains (see docs/04-auth-and-access.md).
 resource web 'Microsoft.Web/sites@2023-12-01' = {
   name: 'app-${suffix}-${uniq}'
   location: location
   tags: tags
   kind: 'app,linux'
-  identity: { type: 'SystemAssigned' }
   properties: {
     serverFarmId: plan.id
     httpsOnly: true
@@ -232,22 +186,18 @@ resource web 'Microsoft.Web/sites@2023-12-01' = {
       minTlsVersion: '1.2'
       ftpsState: 'Disabled'
       healthCheckPath: '/health'
-      ipSecurityRestrictionsDefaultAction: 'Deny'
-      ipSecurityRestrictions: ipRules
-      scmIpSecurityRestrictionsUseMain: true
-      scmIpSecurityRestrictionsDefaultAction: 'Deny'
       appSettings: [
-        { name: 'APP_ENV', value: environment == 'prod' ? 'prod' : environment }
+        { name: 'APP_ENV', value: environment }
         { name: 'BASE_URL', value: 'https://app-${suffix}-${uniq}.azurewebsites.net' }
         { name: 'ALLOWED_EMAIL_DOMAINS', value: allowedEmailDomains }
         { name: 'BOOTSTRAP_ADMIN_EMAIL', value: bootstrapAdminEmail }
-        { name: 'SECRET_KEY', value: '@Microsoft.KeyVault(VaultName=${kv.name};SecretName=SECRET-KEY)' }
-        { name: 'DATABASE_URL', value: '@Microsoft.KeyVault(VaultName=${kv.name};SecretName=DATABASE-URL)' }
+        { name: 'SECRET_KEY', value: appSecretKey }
+        { name: 'DATABASE_URL', value: databaseUrl }
         { name: 'EMAIL_BACKEND', value: 'acs' }
-        { name: 'ACS_CONNECTION_STRING', value: '@Microsoft.KeyVault(VaultName=${kv.name};SecretName=ACS-CONNECTION-STRING)' }
+        { name: 'ACS_CONNECTION_STRING', value: acs.listKeys().primaryConnectionString }
         { name: 'ACS_SENDER', value: 'DoNotReply@${emailDomain.properties.mailFromSenderDomain}' }
         { name: 'STORAGE_BACKEND', value: 'azure' }
-        { name: 'AZURE_STORAGE_ACCOUNT_URL', value: storage.properties.primaryEndpoints.blob }
+        { name: 'AZURE_STORAGE_CONNECTION_STRING', value: storageConnectionString }
         { name: 'AZURE_STORAGE_CONTAINER', value: 'attachments' }
         { name: 'SCHEDULER_ENABLED', value: 'true' }
         { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', value: appInsights.properties.ConnectionString }
@@ -259,34 +209,9 @@ resource web 'Microsoft.Web/sites@2023-12-01' = {
   }
 }
 
-// --------------------------------------------------------------------------- RBAC for the web app's managed identity
-var roleKeyVaultSecretsUser = subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '4633458b-17de-408a-b874-0445c86b69e6')
-var roleStorageBlobDataContributor = subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'ba92f5b4-2d11-453d-a403-e96b0029c9fe')
-var roleKeyVaultSecretsOfficer = subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'b86a8fe4-44ce-4948-aee5-eccb2c155cd7')
-
-resource kvReader 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(kv.id, web.id, roleKeyVaultSecretsUser)
-  scope: kv
-  properties: { roleDefinitionId: roleKeyVaultSecretsUser, principalId: web.identity.principalId, principalType: 'ServicePrincipal' }
-}
-
-resource blobWriter 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(storage.id, web.id, roleStorageBlobDataContributor)
-  scope: storage
-  properties: { roleDefinitionId: roleStorageBlobDataContributor, principalId: web.identity.principalId, principalType: 'ServicePrincipal' }
-}
-
-resource kvOperator 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (!empty(keyVaultAdminObjectId)) {
-  name: guid(kv.id, keyVaultAdminObjectId, roleKeyVaultSecretsOfficer)
-  scope: kv
-  properties: { roleDefinitionId: roleKeyVaultSecretsOfficer, principalId: keyVaultAdminObjectId }
-}
-
 // --------------------------------------------------------------------------- outputs
 output webAppName string = web.name
 output webAppUrl string = 'https://${web.properties.defaultHostName}'
-output webAppPrincipalId string = web.identity.principalId
-output keyVaultName string = kv.name
 output postgresHost string = postgres.properties.fullyQualifiedDomainName
 output storageAccountName string = storage.name
 output emailSender string = 'DoNotReply@${emailDomain.properties.mailFromSenderDomain}'

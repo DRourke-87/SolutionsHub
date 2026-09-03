@@ -14,7 +14,7 @@ application, Alembic migrations, tests, Bicep infrastructure, and GitHub Actions
 | [01 – Solution Scope](docs/01-solution-scope.md) | Executive summary, constraints, target architecture, Azure service selection, cost estimate, requirements traceability, gaps, roadmap, open questions |
 | [02 – Workflow & RBAC](docs/02-workflow-and-rbac.md) | Roles, permission matrix, workflow state machine, transitions, notifications, reminders, 6-month review, audit record |
 | [03 – Data Model](docs/03-data-model.md) | Intake form field inventory, entities and relationships, capability taxonomy seed data, attachment storage, retention |
-| [04 – Authentication & Access](docs/04-auth-and-access.md) | VPN IP allowlisting, magic-link email sign-in, sessions, rate limiting, role administration, threat notes |
+| [04 – Authentication & Access](docs/04-auth-and-access.md) | Public endpoint rationale, magic-link email sign-in, sessions, rate limiting, role administration, threat notes |
 | [05 – Deployment & Operations](docs/05-deployment.md) | Local development, Azure setup, infra and app deployment, first sign-in, email deliverability, operations, troubleshooting |
 
 ## Headline design
@@ -22,9 +22,10 @@ application, Alembic migrations, tests, Bicep infrastructure, and GitHub Actions
 - **Hosting:** Azure App Service (B1 Linux, built-in Python 3.12) running a FastAPI web app
 - **Data:** Azure Database for PostgreSQL Flexible Server (B1ms) + Azure Blob Storage for attachments
 - **Email:** Azure Communication Services Email for sign-in links and workflow notifications
-- **Access:** App Service IP access restrictions (VPN egress IPs) at the edge, passwordless magic-link
-  sign-in for `@amentum.com`, `@global.amentum.com` and `@amentumcms.com`, application-level RBAC for
-  Reviewer / Approver / Publisher / Admin
+- **Access:** public HTTPS endpoint; passwordless magic-link sign-in limited to `@amentum.com`,
+  `@global.amentum.com` and `@amentumcms.com`; application-level RBAC for Reviewer / Approver / Publisher / Admin
+- **Permissions needed to deploy:** Contributor on one resource group. No role assignments, no Key Vault;
+  services authenticate with keys and connection strings written to App Service settings
 - **Cost:** roughly **$30 USD per month** for a single production environment
 
 ## Quick start (local)
@@ -45,8 +46,8 @@ pytest -q
 | `app/` | FastAPI application: `models.py`, `workflow.py`, `policy.py`, `auth.py`, routers, services, Jinja templates, static assets |
 | `alembic/` | Database migrations |
 | `tests/` | pytest suite (sign-in, CSRF, policy matrix, full lifecycle, reminders, admin) |
-| `infra/` | Bicep template and parameters for all Azure resources |
-| `.github/workflows/` | CI (lint, migrations, tests, Bicep build), app deploy (OIDC zip deploy), infra deploy |
+| `infra/` | Bicep template and parameters for all Azure resources (Contributor-only, no RBAC) |
+| `.github/workflows/` | CI (lint, migrations, tests, Bicep build), app deploy (publish-profile zip deploy), optional infra deploy |
 | `docs/` | Scoping and operations documentation |
 | `startup.sh` | App Service startup: migrate, seed, run Gunicorn |
 

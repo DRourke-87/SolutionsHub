@@ -35,7 +35,8 @@ class Settings(BaseSettings):
     # Attachments
     storage_backend: str = "local"  # local | azure
     local_storage_path: str = "./var/uploads"
-    azure_storage_account_url: str | None = None
+    azure_storage_connection_string: str | None = None  # key-based auth (default in the Bicep deployment)
+    azure_storage_account_url: str | None = None  # alternative: managed identity via DefaultAzureCredential
     azure_storage_container: str = "attachments"
     max_attachments_per_submission: int = 10
     max_attachment_mb: int = 25

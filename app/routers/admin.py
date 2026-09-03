@@ -320,6 +320,9 @@ def settings_view(request: Request, user: User = Depends(require_admin)):
         "EMAIL_BACKEND": s.email_backend,
         "ACS_SENDER": s.acs_sender,
         "STORAGE_BACKEND": s.storage_backend,
+        "AZURE_STORAGE_AUTH": "connection string"
+        if s.azure_storage_connection_string
+        else ("managed identity" if s.azure_storage_account_url else "n/a"),
         "MAX_ATTACHMENTS_PER_SUBMISSION": s.max_attachments_per_submission,
         "MAX_ATTACHMENT_MB": s.max_attachment_mb,
         "ALLOWED_ATTACHMENT_EXTENSIONS": s.allowed_attachment_extensions,
