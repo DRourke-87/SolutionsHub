@@ -1,0 +1,10 @@
+The six-monthly content review for this published offering is {{ overdue_days }} days overdue.
+
+Reference: {{ sub.display_ref }}
+Offering: {{ sub.offering_name }}
+Was due: {{ due.strftime('%d %b %Y') }}
+
+Please confirm or update the content here:
+{{ link }}
+
+— {{ app_name }}

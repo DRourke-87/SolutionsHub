@@ -15,9 +15,9 @@ an approval record, a publishing handoff, and a six-month content refresh cycle.
 
 The proposed solution is a small, self-contained web application hosted on Azure:
 
-- A **single Python web app** on Azure App Service (B1 Linux) that serves the intake form, the review /
-  approval workflow, and an admin area.
-- **Azure SQL Database (Basic)** as the single source of truth, **Azure Blob Storage** for attachments,
+- A **single Python web app** (FastAPI) on Azure App Service (B1 Linux, built-in Python 3.12 image) that serves the
+  intake form, the review / approval workflow, and an admin area.
+- **Azure Database for PostgreSQL (Flexible Server, B1ms)** as the single source of truth, **Azure Blob Storage** for attachments,
   and **Azure Communication Services Email** for sign-in links and notifications.
 - **Edge access** limited to the corporate VPN egress IP addresses of both domains using App Service
   access restrictions.
@@ -27,7 +27,7 @@ The proposed solution is a small, self-contained web application hosted on Azure
 - **Application-level RBAC** (Reviewer, Approver, Publisher, Admin) stored in the app's own database and
   managed by an admin, because Entra ID / corporate SSO cannot be used across the two unconnected domains.
 
-Estimated running cost is **about $19 USD per month** for production, roughly double with a separate
+Estimated running cost is **about $30 USD per month** for production, roughly double with a separate
 dev/test environment.
 
 The solution meets requirements sections 1–6, 8, and 9 fully, and sections 7, 10, and 11 partially. The
@@ -53,11 +53,11 @@ measuring content usage outside the app. Details are in the traceability matrix 
 
 | Decision | Choice | Alternatives considered |
 |---|---|---|
-| Deliverable of this phase | Scoping documentation only | Docs + IaC skeleton; docs + MVP |
+| Deliverable | Phase 0 scoping docs, then a **Phase 1 deployable MVP** (application, Bicep IaC, CI/CD) – both delivered in this repository | – |
 | Application stack | Python 3.12, FastAPI, Jinja2 templates, HTMX | .NET 8, Node.js |
 | Hosting | App Service B1 Linux (always on) | Container Apps consumption (scale-to-zero, cold starts, needs registry) |
-| User authentication | Magic-link email for all users | Local passwords; Entra External ID (CIAM) tenant |
-| Database | Azure SQL Database Basic | Cosmos DB free tier; Azure SQL serverless; PostgreSQL Flexible Server |
+| User authentication | Magic-link email for all users; allowed domains `amentum.com`, `global.amentum.com`, `amentumcms.com` | Local passwords; Entra External ID (CIAM) tenant |
+| Database | Azure Database for PostgreSQL Flexible Server (Burstable B1ms) – sponsor accepted the ~$11/mo premium over Azure SQL Basic to avoid the ODBC/container dependency | Azure SQL Basic; Cosmos DB free tier; Azure SQL serverless |
 
 ---
 
@@ -76,8 +76,8 @@ flowchart LR
     end
 
     subgraph Azure["Azure resource group (single region)"]
-        WEB["App Service B1 Linux<br/>Python / FastAPI container<br/>Always On, HTTPS only"]
-        SQL["Azure SQL Database<br/>Basic (5 DTU, 2 GB)"]
+        WEB["App Service B1 Linux<br/>Python 3.12 / FastAPI<br/>Always On, HTTPS only"]
+        SQL["PostgreSQL Flexible Server<br/>Burstable B1ms, 32 GB"]
         BLOB["Blob Storage<br/>private container<br/>attachments"]
         ACS["Communication Services<br/>Email"]
         KV["Key Vault<br/>secrets"]
@@ -92,7 +92,7 @@ flowchart LR
     U2 --> IP
     U3 --> IP
     IP --> WEB
-    WEB -- "managed identity" --> SQL
+    WEB -- "TLS, secret from Key Vault" --> SQL
     WEB -- "managed identity" --> BLOB
     WEB -- "managed identity" --> ACS
     WEB -- "Key Vault references" --> KV
@@ -101,7 +101,7 @@ flowchart LR
     SCHED --> SQL
     SCHED --> ACS
     ACS --> MAIL
-    GH -- "deploy image" --> WEB
+    GH -- "zip deploy" --> WEB
 ```
 
 ### 3.1 Request flow in one paragraph
@@ -110,7 +110,7 @@ A user on either corporate VPN opens the site. App Service checks the source IP 
 returns HTTP 403 to anything else. The user enters their work email; the app validates it against an
 allowed-domain list, creates a single-use token, and sends a sign-in link via Communication Services
 Email. Clicking the link establishes a signed session cookie. The app looks up the user's roles, renders
-the pages they are entitled to, and writes every state change to an audit table in Azure SQL. Attachments
+the pages they are entitled to, and writes every state change to an audit table in PostgreSQL. Attachments
 are streamed to a private Blob container. A background scheduler running inside the same App Service
 instance sends reminders and six-month review notices.
 
@@ -120,17 +120,16 @@ instance sends reminders and six-month review notices.
 
 | Concern | Selected service and tier | Why | Rejected alternatives |
 |---|---|---|---|
-| Web hosting | **App Service Plan B1 Linux** + Web App for Containers, Always On | Fixed low cost, no cold starts, built-in IP access restrictions on both the app and the SCM/Kudu site, free managed TLS certificate, easy GitHub Actions deploy. | **Container Apps (consumption):** cheaper at zero traffic but cold starts on first hit, requires a container registry and Log Analytics; more moving parts for a low-traffic internal app. **App Service F1/D1:** no Always On, daily CPU quota, not suitable for scheduled jobs. |
-| Relational data | **Azure SQL Database Basic** (5 DTU, 2 GB) | Workflow state, role assignments, comments, and an approval audit trail are naturally relational. Basic is the cheapest always-on SQL tier and has a straightforward upgrade path (S0, S1) with no code change. 7-day point-in-time restore included. | **Cosmos DB free tier:** $0 but document model is a poorer fit for joins, reporting, and audit queries. **Azure SQL serverless:** auto-pause saves money only when idle for long stretches; office-hours use costs more than Basic and resumes take up to a minute. **PostgreSQL Flexible B1ms:** ~$12–15/mo more; avoids the ODBC driver dependency (see section 5). |
-| File attachments | **Storage account** (StorageV2, LRS, Hot), one private container | Pennies per month for the expected volume. Soft delete and blob versioning provide accidental-deletion protection. | Storing files in SQL (2 GB Basic cap makes this a non-starter). |
+| Web hosting | **App Service Plan B1 Linux** + Web App on the built-in Python 3.12 image, Always On | Fixed low cost, no cold starts, built-in IP access restrictions on both the app and the SCM/Kudu site, free managed TLS certificate, easy GitHub Actions deploy. | **Container Apps (consumption):** cheaper at zero traffic but cold starts on first hit, requires a container registry and Log Analytics; more moving parts for a low-traffic internal app. **App Service F1/D1:** no Always On, daily CPU quota, not suitable for scheduled jobs. |
+| Relational data | **Azure Database for PostgreSQL Flexible Server**, Burstable B1ms (1 vCore, 2 GiB), 32 GB storage, 7-day backups | Workflow state, role assignments, comments and the audit trail are naturally relational. PostgreSQL works with the pip-installable `psycopg` driver on the stock App Service Python image, so no custom container or ODBC driver is needed. Advisory locks make the in-process scheduler safe to scale out. Vertical scaling is a portal setting. | **Azure SQL Basic:** ~$11/mo cheaper but needs the Microsoft ODBC driver, which forces a custom container image. **Cosmos DB free tier:** document model is a poorer fit for joins, reporting and audit. **Azure SQL serverless:** auto-pause resumes take up to a minute. |
+| File attachments | **Storage account** (StorageV2, LRS, Hot), one private container | Pennies per month for the expected volume. Soft delete and blob versioning provide accidental-deletion protection. | Storing files in the database (bloats backups, slows queries). |
 | Email | **Azure Communication Services Email** | Transactional email at fractions of a cent per message; SDK for Python; works with managed identity. Can start on an Azure-managed sender domain with zero DNS work. | SMTP relay through a corporate mail server (cross-domain relay permissions are unlikely); SendGrid (third-party approval overhead). |
 | Secrets | **Key Vault Standard** with App Service Key Vault references | Keeps the session signing key and any connection strings out of app settings and source control. Cost is effectively zero at this volume. | Plain app settings (acceptable for dev only). |
-| Identity for the app itself | **System-assigned managed identity** on the Web App | Removes passwords for SQL, Blob, Key Vault, and Communication Services. This is Azure identity for the *application*, not for users, so it does not conflict with constraint C1. | SQL authentication with a stored password. |
+| Identity for the app itself | **System-assigned managed identity** on the Web App | Removes passwords for Blob Storage and Key Vault access. PostgreSQL uses a generated password held in Key Vault for the MVP; moving it to Entra (managed identity) authentication is a documented hardening step. This is Azure identity for the *application*, not for users, so it does not conflict with constraint C1. | Storage account keys and Key Vault access policies. |
 | Telemetry | **Application Insights** on a Log Analytics workspace with a daily cap | First 5 GB per month of ingestion is free; a low daily cap guarantees it stays there. | None needed. |
 | Scheduled work | **In-process scheduler** (APScheduler) inside the web app, guarded by a database lock | No extra service or cost. B1 with Always On keeps the process alive. A DB lock prevents double-sending if the plan is ever scaled to two instances. | **Azure Functions consumption timer:** free grant covers it and is the right move if the app is later scaled out; **WebJobs**. |
-| CI/CD | **GitHub Actions** with an OIDC federated credential to Azure | No long-lived deployment secrets. Builds the container image and deploys to App Service. | Azure DevOps pipelines (adds another system). |
-| Container image registry | **GitHub Container Registry** (private, in the repo's org) | Free for the expected volume; App Service pulls with a scoped token. | **Azure Container Registry Basic** (~$5/mo) if the team prefers everything in Azure. |
-| Infrastructure as code | **Bicep** (Phase 1) | Native Azure, no state file to manage. | Terraform. |
+| CI/CD | **GitHub Actions** with an OIDC federated credential to Azure | No long-lived deployment secrets. Runs lint/tests on every push, zip-deploys to App Service on `main`, and applies Bicep on demand. | Azure DevOps pipelines (adds another system). |
+| Infrastructure as code | **Bicep** (`infra/main.bicep`, delivered) | Native Azure, no state file to manage. | Terraform. |
 
 ### 4.1 What is deliberately *not* used
 
@@ -139,7 +138,7 @@ instance sends reminders and six-month review notices.
   internal VPN-only audience. Revisit if the app is ever exposed outside the VPN.
 - No deployment slots (B1 does not support them; S1 at ~$69/mo would be needed). Zero-downtime deploys are
   not a requirement for an internal intake tool.
-- No geo-redundancy. Azure SQL Basic point-in-time restore and Blob soft delete cover the realistic
+- No geo-redundancy. PostgreSQL point-in-time restore and Blob soft delete cover the realistic
   failure modes for this workload.
 
 ---
@@ -152,11 +151,11 @@ instance sends reminders and six-month review notices.
 | Web framework | FastAPI + Uvicorn (behind Gunicorn) | Async, typed, small footprint. |
 | Templating / UI | Jinja2 server-rendered pages + HTMX for partial updates | No SPA build pipeline. Accessible, works without heavy JavaScript. Simple form UX for submitters. |
 | ORM / migrations | SQLAlchemy 2.x + Alembic | Schema is versioned and migrated on deploy. |
-| SQL driver | `pyodbc` with Microsoft ODBC Driver 18, using managed identity | The App Service built-in Python image does **not** include the ODBC driver, so the app is shipped as a **custom container** (Dockerfile installs the driver). This is the main reason for the container deployment model. If the team prefers the built-in Python image, switch the database to PostgreSQL Flexible Server (adds ~$12–15/mo) and use `psycopg`. |
+| Database driver | `psycopg` 3 (binary wheel) | Pure pip install; works on the stock App Service Python image with zip deploy. Connection string with `sslmode=require` is a Key Vault reference. |
 | Azure SDKs | `azure-identity`, `azure-storage-blob`, `azure-communication-email`, `azure-keyvault-secrets` | All support `DefaultAzureCredential` so local dev and App Service use the same code path. |
-| Background jobs | APScheduler (in-process) | Jobs: overdue-action reminders, six-month review notices, token and session cleanup, notification retry. |
+| Background jobs | APScheduler (in-process, PostgreSQL advisory lock) | Jobs: notification delivery every minute, overdue-action reminders hourly, six-month review notices hourly, housekeeping nightly. |
 | Forms / validation | Pydantic models | Server-side validation of required fields, "select at most 3 capabilities", attachment count and size. |
-| Testing | pytest, HTTPX test client, a local SQL Server container or SQLite for unit tests | |
+| Testing | pytest + Starlette TestClient; runs against PostgreSQL in CI (SQLite fallback locally) | 27 tests cover sign-in, CSRF, policy matrix, the full lifecycle, reminders and admin. |
 | Observability | OpenTelemetry → Application Insights | Request traces, exceptions, custom events for workflow transitions. |
 
 ---
@@ -169,20 +168,19 @@ Pricing Calculator before approval. Figures exclude tax and any enterprise disco
 | Service | Tier / assumption | Est. USD per month |
 |---|---|---|
 | App Service Plan | B1 Linux, 1 instance, 730 hours | ~13.00 |
-| Azure SQL Database | Basic, 5 DTU, 2 GB | ~5.00 |
+| Azure Database for PostgreSQL | Flexible Server, Burstable B1ms, 730 hours | ~12.50 |
+| PostgreSQL storage + backup | 32 GB storage; 7-day backup within the free allowance | ~3.70 |
 | Storage account | 10 GB Hot LRS + a few thousand operations | ~0.50 |
 | Communication Services Email | ~500 messages/month | ~0.20 |
 | Key Vault | Standard, a few thousand operations | ~0.05 |
 | Application Insights / Log Analytics | Under the 5 GB free ingestion grant, daily cap set | 0.00 |
-| GitHub Container Registry | Private image within org allowance | 0.00 |
-| **Total (production)** | | **~$19** |
-| Optional second environment (dev/test) | Same footprint | ~+19 |
-| Optional: Azure Container Registry Basic instead of GHCR | | ~+5 |
-| Optional: PostgreSQL Flexible B1ms instead of Azure SQL Basic | 32 GB storage | ~+12 to +15 |
+| **Total (production)** | | **~$30** |
+| Optional second environment (dev/test) | Same footprint | ~+30 |
+| Alternative: Azure SQL Basic instead of PostgreSQL | Requires a custom container image | ~−11 |
 
 Cost levers if the app grows:
 
-- Azure SQL Basic → S0 (~$15) → S1 (~$30) when DTU or the 2 GB cap becomes a constraint.
+- PostgreSQL B1ms → B2s (~$25) or General Purpose D2ds_v4 (~$125) if CPU credits or memory become a constraint.
 - App Service B1 → B2 (~$26) for more memory, or S1 (~$69) if deployment slots are wanted.
 - Blob storage grows linearly at roughly $0.02 per GB per month.
 
@@ -198,11 +196,11 @@ Full detail is in [04 – Authentication & Access](04-auth-and-access.md).
 | User identity | Passwordless magic link to a work email on an allowed domain. 15-minute single-use token. No accounts to provision or passwords to reset. |
 | Session | Signed, HttpOnly, Secure, SameSite=Lax cookie; 8-hour sliding expiry, optional 30-day "remember me". |
 | Authorization | Roles (Submitter implicit, Reviewer, Approver, Publisher, Admin) held in the database; optional scoping of Reviewer/Approver to a business group. Every mutating request is checked server-side against role and record ownership. |
-| Application identity | System-assigned managed identity for SQL, Blob, Key Vault, and Email. No connection strings with passwords. |
-| Data protection | Encryption at rest (platform default) for SQL and Blob; private Blob container, no anonymous access; attachments served only through the app or with short-lived SAS. |
+| Application identity | System-assigned managed identity for Blob Storage and Key Vault. The PostgreSQL password and the Communication Services connection string never leave Key Vault (App Service Key Vault references). |
+| Data protection | Encryption at rest (platform default) for PostgreSQL and Blob; TLS enforced to the database; private Blob container, no anonymous access; attachments served only through the app or with short-lived SAS. |
 | Audit | Every workflow transition, approval decision, role change, and sign-in is written to an append-only audit table. |
 | Abuse controls | Rate limits on sign-in requests per email and per IP, CSRF tokens on forms, attachment type and size limits, dependency scanning in CI. |
-| Backup | Azure SQL Basic 7-day point-in-time restore; Blob soft delete (30 days) and versioning. |
+| Backup | PostgreSQL Flexible Server 7-day point-in-time restore; Blob soft delete (30 days) and versioning. |
 
 ---
 
@@ -213,7 +211,7 @@ Requirement sections refer to *New Solution / Offering Input Process – High-Le
 | § | Requirement | How the design meets it | Status |
 |---|---|---|---|
 | 1 | New Solution / Offering intake: standard submission, required vs optional fields, submitting org and owner, co-leaders / backups, supporting documents | Web intake form reproducing all 17 form fields with server-side required-field validation; `submission_contacts` records recorder, owner(s), co-leads, and solution architect; up to 10 attachments plus links/notes. Submitter is any authenticated (magic-link) user on VPN. | **Met** |
-| 2 | Centralized information: single source of truth, updates over time, defined edit access, site-level admin | One record per submission in Azure SQL; versioned snapshots at each approval; owners/co-leads can edit their record in editable states; Admin role can edit, reopen, or archive any record. | **Met** |
+| 2 | Centralized information: single source of truth, updates over time, defined edit access, site-level admin | One record per submission in PostgreSQL; versioned snapshots at each approval; owners/co-leads can edit their record in editable states; Admin role can edit, reopen, or archive any record. | **Met** |
 | 3 | Review & validation: route to stakeholders, request changes, flag missing info, automated reminders, track status and next actor | Reviewer role claims a submission; "Request updates" returns it to the submitter with comments; completeness check lists missing required fields; scheduler emails the responsible party every 5 business days while an action is outstanding; each record shows status and "waiting on". | **Met** |
 | 4 | Collaboration & updates: submitter, owner, and stakeholders work together; visibility of outstanding actions; clear readiness for next stage | Threaded comments on each submission with email notification; outstanding-action panel; explicit "Submit for approval" and "Resubmit" actions with guards. | **Met** |
 | 5 | Approval: required approvers, approve / reject / request changes, record of approval, block unapproved content | Approver role (optionally scoped per business group); decisions stored in `workflow_events` with actor, timestamp, and note; approved snapshot saved to `submission_versions`; publishing actions are only available from Approved. | **Met** |
@@ -261,9 +259,9 @@ and recommends the form owner adopt it.
 | Sign-in and notification emails land in spam on one or both domains | Users cannot sign in; workflow stalls | Verify a custom sender domain in Communication Services with SPF, DKIM, and DMARC before go-live; ask mail admins on both domains to allowlist the sender. Provide an admin "resend" action. |
 | VPN egress IPs change or a user is off-VPN | Legitimate users get 403 | Document the IP list as configuration in IaC; show a clear "connect to VPN" 403 page; make IP list changes a low-friction operational task. |
 | Single App Service instance restarts mid-job | Missed reminder run | Jobs are idempotent and re-run on the next schedule; a DB lock prevents duplicates. |
-| Azure SQL Basic 2 GB cap | Writes fail when full | Attachments are in Blob, not SQL; alerts at 70% and 85%; upgrade to S0 is a portal setting. |
+| PostgreSQL B1ms burstable CPU credits exhausted under sustained load | Slow responses | Expected load is light and bursty; monitor CPU credit metrics; scale to B2s is a portal setting. |
 | Cyber review time for a custom app | Schedule slip | Start the review in parallel with Phase 1 using this document and doc 04 as the input. |
-| ODBC driver dependency in the container image | Build complexity | Pin the driver version in the Dockerfile; or switch to PostgreSQL at a known cost delta. |
+| PostgreSQL firewall allows all Azure services (MVP default) | Broader network exposure than necessary | Strong generated password in Key Vault, TLS required; harden by restricting to the web app's outbound IPs or VNet integration, and move to Entra (managed identity) auth. |
 
 ---
 
@@ -271,9 +269,9 @@ and recommends the form owner adopt it.
 
 | Phase | Scope | Indicative effort |
 |---|---|---|
-| **0 – Scoping (this document)** | Architecture, cost, RBAC model, workflow, data model, security posture, gaps | Complete |
-| **1 – MVP** | Bicep IaC for all resources; GitHub Actions CI/CD; intake form (all fields + Offering Name); magic-link sign-in; roles and admin UI; full seven-stage workflow with comments, reminders, and audit; export package for publishing handoff; Application Insights; Cyber review in parallel | ~4–6 weeks for one developer |
-| **2 – Maintain & measure** | Six-month review cycle with overdue tracking; per-submission page view and download metrics; contributor / owner activity view (recognition); custom email sender domain; business-group-scoped approvers if needed; dev/test environment | ~2–3 weeks |
+| **0 – Scoping** | Architecture, cost, RBAC model, workflow, data model, security posture, gaps | Complete |
+| **1 – MVP** | Bicep IaC for all resources; GitHub Actions CI/CD; intake form (all fields + Offering Name); magic-link sign-in; roles and admin UI; full seven-stage workflow with comments, reminders, and audit; export package for publishing handoff; six-month review cycle; Application Insights | **Delivered** in this repository (see `docs/05-deployment.md`). Cyber review and go-live configuration remain. |
+| **2 – Harden & measure** | Custom email sender domain (SPF/DKIM); PostgreSQL managed-identity auth and network hardening; contributor / owner activity view (recognition); metrics dashboard from the page-view data already collected; dev/test environment | ~2–3 weeks |
 | **3 – Publish integration** | Direct publishing to the destination platform once identified; publication confirmation back into the record | Depends on destination |
 
 ---
@@ -281,7 +279,7 @@ and recommends the form owner adopt it.
 ## 11. Open questions for the business
 
 1. What is the definitive **list of Business Groups** for the dropdown?
-2. What is the **second domain** name, and what are the **VPN egress IP ranges** for both domains?
+2. ~~Second domain name~~ (answered: `amentum.com`, `global.amentum.com`, `amentumcms.com`). What are the **VPN egress IP ranges**? These go in `infra/main.bicepparam`.
 3. What is the **publishing destination** (external website CMS, SharePoint, other) and who owns it?
 4. Should approvers be **scoped by Business Group**, or is there one global approver pool?
 5. Who are the **initial Site Admins**?

@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}Settings{% endblock %}
+{% block content %}
+<h1>Effective settings</h1>
+{% include "admin/_nav.html" %}
+<section class="card">
+  <p class="muted">These values come from App Service application settings (or the local <code>.env</code>). Change them in the infrastructure configuration, not here.</p>
+  <table class="table"><tbody>{% for k, v in shown.items() %}<tr><th>{{ k }}</th><td><code>{{ v }}</code></td></tr>{% endfor %}</tbody></table>
+</section>
+{% endblock %}

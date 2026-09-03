@@ -1,0 +1,12 @@
+{{ requester.name_or_email }} has requested updates to your submission.
+
+Reference: {{ sub.display_ref }}
+Offering: {{ sub.offering_name }}
+
+What needs to change:
+{{ note }}
+
+Update and resubmit here:
+{{ link }}
+
+— {{ app_name }}

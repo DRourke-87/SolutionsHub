@@ -1,0 +1,8 @@
+{{ actor.name_or_email }} has resubmitted the offering after making updates. It is back with you for review.
+
+Reference: {{ sub.display_ref }}
+Offering: {{ sub.offering_name }}
+
+{{ link }}
+
+— {{ app_name }}

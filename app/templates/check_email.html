@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Check your email{% endblock %}
+{% block content %}
+<div class="auth-card">
+  <h1>Check your email</h1>
+  <p class="lead">If <strong>{{ email }}</strong> is on an allowed domain, a sign-in link is on its way. It works once and expires in {{ settings.magic_link_ttl_minutes }} minutes.</p>
+  <p class="muted">Nothing arrived? Check your junk folder, then <a href="/login">request another link</a>.</p>
+  {% if dev_link %}
+  <div class="devbox">
+    <strong>Development mode:</strong> the console email backend is active, so here is your link:<br>
+    <a href="{{ dev_link }}">{{ dev_link }}</a>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

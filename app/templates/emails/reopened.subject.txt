@@ -1,0 +1,1 @@
+Reopened for updates: {{ sub.display_ref }} · {{ sub.offering_name }}

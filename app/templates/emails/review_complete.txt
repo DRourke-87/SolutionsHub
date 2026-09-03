@@ -1,0 +1,8 @@
+Good news: the review of your submission is complete and it has been sent for approval.
+
+Reference: {{ sub.display_ref }}
+Offering: {{ sub.offering_name }}
+
+{{ link }}
+
+— {{ app_name }}

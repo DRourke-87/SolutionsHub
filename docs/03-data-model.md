@@ -1,6 +1,6 @@
 # 03 – Data Model
 
-This document maps the existing intake form to a relational schema in Azure SQL Database, defines the
+This document maps the existing intake form to a relational schema in Azure Database for PostgreSQL, defines the
 supporting entities for workflow, RBAC, audit, and metrics, and describes attachment storage and
 retention.
 
@@ -83,7 +83,9 @@ non-empty links/notes field, which matches the intent without forcing an upload 
 | `sessions` | Server-side session registry (for revocation) | `id`, `email`, `created_at`, `last_seen_at`, `expires_at`, `revoked_at`, `ip`, `user_agent` |
 | `notification_log` | Every email queued and its delivery result | `id`, `submission_id` (nullable), `to_email`, `template`, `subject`, `queued_at`, `sent_at`, `status`, `provider_message_id`, `error` |
 | `page_views` | Usage metric per submission | `id`, `submission_id`, `viewer_email`, `viewed_at`, `kind` (`view`, `download`) |
-| `app_settings` | Editable configuration (thresholds, allowed domains, limits) | `key`, `value`, `updated_by_email`, `updated_at` |
+| `app_settings` | Reserved for admin-editable configuration (MVP reads configuration from App Service settings) | `key`, `value`, `updated_by_email`, `updated_at` |
+| `rate_limit_counters` | Hourly counters for sign-in and verify attempts per email / IP | `scope`, `key`, `window_start`, `count` |
+| `reference_sequences` | Per-year counter behind `SOL-YYYY-NNNN` reference numbers | `year`, `last_value` |
 
 ---
 
@@ -226,7 +228,7 @@ required when "Other" is selected.
 
 | Item | Policy |
 |---|---|
-| Azure SQL | Basic tier includes 7-day point-in-time restore. Weekly long-term backup retention can be enabled if the business requires it. |
+| PostgreSQL Flexible Server | 7-day point-in-time restore included (configurable to 35 days). Long-term retention can be enabled if the business requires it. |
 | Blob | Soft delete 30 days, versioning on, no lifecycle deletion of active records. |
 | Withdrawn / Rejected records | Retained and visible to Admins; proposed default: archive after 24 months, then delete attachments (open question 8 in doc 01). |
 | Audit log | Never deleted while the submission exists; exported with the submission on archive. |
@@ -235,5 +237,5 @@ required when "Other" is selected.
 | Notification log | Retained 12 months. |
 | Page views | Retained indefinitely (small), aggregated for metrics. |
 
-Reference numbers are generated from a per-year sequence inside the submit transaction so they are
-unique and gap-free within a year.
+Reference numbers are generated from a per-year counter row locked `FOR UPDATE` inside the submit transaction so
+they are unique and gap-free within a year. The schema is managed with Alembic migrations (`alembic/versions/`).

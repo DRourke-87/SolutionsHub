@@ -1,0 +1,9 @@
+An offering has been approved and needs publishing preparation.
+
+Reference: {{ sub.display_ref }}
+Offering: {{ sub.offering_name }}
+
+Confirm readiness and download the handoff package here:
+{{ link }}
+
+— {{ app_name }}

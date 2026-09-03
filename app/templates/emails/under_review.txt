@@ -1,0 +1,8 @@
+{{ reviewer.name_or_email }} has started reviewing your submission.
+
+Reference: {{ sub.display_ref }}
+Offering: {{ sub.offering_name }}
+
+{{ link }}
+
+— {{ app_name }}

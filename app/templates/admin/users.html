@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Users & roles{% endblock %}
+{% block content %}
+<h1>Users &amp; roles</h1>
+{% include "admin/_nav.html" %}
+<section class="card">
+  <h2>Grant a role</h2>
+  <form method="post" action="/admin/users/grant" class="filters">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <input type="email" name="email" required placeholder="person@amentum.com">
+    <select name="role" required>{% for r in roles %}<option value="{{ r.value }}">{{ r.value|capitalize }}</option>{% endfor %}</select>
+    <select name="business_group_id"><option value="">All business groups</option>{% for g in groups %}<option value="{{ g.id }}">{{ g.name }} only</option>{% endfor %}</select>
+    <button class="btn btn-primary" type="submit">Grant</button>
+  </form>
+  <p class="muted small">Reviewer and Approver can be scoped to one business group; Publisher and Admin are always global. The person does not need to have signed in before.</p>
+</section>
+<section class="card">
+  <form method="get" class="filters"><input type="search" name="q" value="{{ q }}" placeholder="Filter by email"><button class="btn btn-secondary" type="submit">Filter</button></form>
+  <table class="table">
+    <thead><tr><th>Email</th><th>Name</th><th>Roles</th><th>Last sign-in</th><th>Status</th><th></th></tr></thead>
+    <tbody>
+    {% for u in rows %}
+    <tr class="{% if u.is_disabled %}muted{% endif %}">
+      <td>{{ u.email }}</td>
+      <td>{{ u.display_name or '' }}</td>
+      <td>
+        {% for r in u.active_roles %}
+        <form method="post" action="/admin/users/{{ u.email }}/revoke/{{ r.id }}" class="inline js-confirm" data-confirm="Revoke {{ r.role }} from {{ u.email }}?">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <span class="role-pill">{{ r.role }}{% if r.business_group %} · {{ r.business_group.name }}{% endif %} <button type="submit" class="pill-x" aria-label="Revoke">✕</button></span>
+        </form>
+        {% else %}<span class="muted small">submitter</span>{% endfor %}
+      </td>
+      <td class="muted small">{{ u.last_sign_in_at|dt }}</td>
+      <td>{% if u.is_disabled %}<span class="badge badge-rejected">Disabled</span>{% else %}<span class="badge badge-approved">Active</span>{% endif %}</td>
+      <td>
+        {% if u.email != user.email %}
+        <form method="post" action="/admin/users/{{ u.email }}/toggle-disabled" class="inline js-confirm" data-confirm="{% if u.is_disabled %}Enable{% else %}Disable{% endif %} {{ u.email }}?">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <button class="btn btn-ghost btn-sm" type="submit">{% if u.is_disabled %}Enable{% else %}Disable{% endif %}</button>
+        </form>
+        {% endif %}
+      </td>
+    </tr>
+    {% else %}<tr><td colspan="6" class="muted">No users yet.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

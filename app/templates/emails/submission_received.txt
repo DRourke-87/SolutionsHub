@@ -1,0 +1,10 @@
+Thank you. Your Solution / Offering submission has been received and is waiting for a reviewer.
+
+Reference: {{ sub.display_ref }}
+Offering: {{ sub.offering_name }}
+Status: Submitted
+
+You can view or update it here:
+{{ link }}
+
+— {{ app_name }}

@@ -1,0 +1,11 @@
+{{ actor.name_or_email }} has reopened a published offering for updates. It needs re-review.
+
+Reference: {{ sub.display_ref }}
+Offering: {{ sub.offering_name }}
+
+Reason:
+{{ note }}
+
+{{ link }}
+
+— {{ app_name }}

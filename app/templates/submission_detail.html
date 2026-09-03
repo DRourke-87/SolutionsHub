@@ -1,0 +1,192 @@
+{% extends "base.html" %}
+{% from "partials/_macros.html" import status_badge, stepper, field, csrf with context %}
+{% block title %}{{ sub.display_ref }} · {{ sub.offering_name }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <div class="crumbs"><a href="/submissions">Submissions</a> / {{ sub.display_ref }}</div>
+    <h1>{{ sub.offering_name or '(untitled draft)' }} {{ status_badge(sub.status) }}</h1>
+    <p class="lead">
+      {{ sub.business_group.name if sub.business_group else 'No business group' }} ·
+      Revision {{ sub.revision }} ·
+      Submitted by {{ sub.created_by_email }}{% if sub.submitted_at %} on {{ sub.submitted_at|date }}{% endif %}
+    </p>
+  </div>
+  <div class="head-actions">
+    {% if policy.can_edit(user, sub) %}<a class="btn btn-secondary" href="/submissions/{{ sub.id }}/edit">Edit</a>{% endif %}
+    {% if policy.can_export(user, sub) %}<a class="btn btn-ghost" href="/submissions/{{ sub.id }}/export.zip">Export package</a>{% endif %}
+  </div>
+</div>
+
+<section class="card">{{ stepper(sub) }}
+  <div class="waiting">Waiting on: <strong>{{ waiting_on(sub) }}</strong>{% if sub.assigned_reviewer_email %} · Reviewer: {{ sub.assigned_reviewer_email }}{% endif %}</div>
+</section>
+
+{% if sub.status == 'published' and open_cycle %}
+<div class="flash flash-info">Published at <a href="{{ sub.published_url }}" rel="noopener">{{ sub.published_url }}</a>. Next content review due <strong>{{ open_cycle.due_at|date }}</strong>{% if open_cycle.due_at < sub.updated_at.__class__.now(sub.updated_at.tzinfo) %} — <strong>overdue</strong>{% endif %}.</div>
+{% endif %}
+
+<div class="layout-2">
+<div class="col-main">
+
+  {% if completeness and sub.status in ('draft','submitted','updates_required','under_review') %}
+  <section class="card card-warn">
+    <h3>Incomplete – required before approval</h3>
+    <ul>{% for e in completeness %}<li>{{ e }}</li>{% endfor %}</ul>
+  </section>
+  {% endif %}
+
+  <section class="card">
+    <h2 class="section-title">Overview</h2>
+    <div class="grid-2">
+      {{ field("Business group", sub.business_group.name if sub.business_group else None, False) }}
+      {{ field("CTO aware of this request", "Yes" if sub.cto_aware else ("No" if sub.cto_aware == False else None), False) }}
+    </div>
+    {{ field("Customer challenge", sub.customer_challenge) }}
+    {{ field("Description of technical solution", sub.technical_description) }}
+  </section>
+
+  <section class="card">
+    <h2 class="section-title">Offering classification</h2>
+    {% if sub.capabilities %}
+    <ul class="tags">{% for sc in sub.capabilities %}<li><span class="tag-area">{{ sc.capability.area.name }}</span> {{ sc.capability.name }}{% if sc.other_text %} – {{ sc.other_text }}{% endif %}</li>{% endfor %}</ul>
+    {% else %}<p class="muted">No capabilities selected.</p>{% endif %}
+  </section>
+
+  <section class="card">
+    <h2 class="section-title">Market &amp; opportunity analysis</h2>
+    {{ field("Key customer benefit(s)", sub.key_benefits) }}
+    <div class="grid-2">
+      {{ field("Level of readiness", READINESS_LABELS[ReadinessLevel(sub.readiness_level)] if sub.readiness_level else None, False) }}
+      {{ field("Currently deployed or proposed", DEPLOYMENT_LABELS[DeploymentStatus(sub.deployment_status)] if sub.deployment_status else None, False) }}
+    </div>
+    {{ field("Relevant programs or clients", sub.readiness_programs) }}
+    {{ field("Deployment / proposal detail", sub.deployment_detail) }}
+    {{ field("Additional customers", sub.additional_customers) }}
+    {{ field("Current pipeline", sub.current_pipeline) }}
+  </section>
+
+  <section class="card" id="attachments">
+    <h2 class="section-title">Supporting resources</h2>
+    {{ field("Links or notes", sub.resource_links_notes) }}
+    <div class="field-label">Files ({{ sub.active_attachments|length }}/{{ settings.max_attachments_per_submission }})</div>
+    {% if sub.active_attachments %}
+    <ul class="attach-list">
+      {% for a in sub.active_attachments %}
+      <li>
+        <a href="/submissions/{{ sub.id }}/attachments/{{ a.id }}/download">{{ a.original_filename }}</a>
+        <span class="muted small">{{ a.size_bytes|filesize }} · {{ a.uploaded_by_email }} · {{ a.uploaded_at|date }}</span>
+        {% if policy.can_manage_attachments(user, sub) %}
+        <form method="post" action="/submissions/{{ sub.id }}/attachments/{{ a.id }}/delete" class="inline js-confirm" data-confirm="Remove this attachment?">{{ csrf() }}<button class="btn btn-ghost btn-sm" type="submit">Remove</button></form>
+        {% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}<p class="muted">No files attached.</p>{% endif %}
+    {% if policy.can_manage_attachments(user, sub) and sub.active_attachments|length < settings.max_attachments_per_submission %}
+    <form method="post" action="/submissions/{{ sub.id }}/attachments" enctype="multipart/form-data" class="inline-form">{{ csrf() }}
+      <input type="file" name="files" multiple required>
+      <button class="btn btn-secondary btn-sm" type="submit">Upload</button>
+    </form>
+    {% endif %}
+  </section>
+
+  <section class="card" id="comments">
+    <h2 class="section-title">Discussion ({{ sub.comments|length }})</h2>
+    {% for c in sub.comments %}
+    <div class="comment {% if c.resolved_at %}resolved{% endif %} {% if c.is_blocking %}blocking{% endif %}">
+      <div class="comment-head"><strong>{{ c.author_name or c.author_email }}</strong> <span class="muted small">{{ c.created_at|dt }}</span>
+        {% if c.is_blocking %}<span class="badge badge-updates_required">Blocking</span>{% endif %}
+        {% if c.resolved_at %}<span class="badge badge-approved">Resolved</span>{% endif %}
+        {% if policy.is_staff(user) or policy.is_contact(user, sub) %}
+        <form method="post" action="/submissions/{{ sub.id }}/comments/{{ c.id }}/resolve" class="inline">{{ csrf() }}<button class="btn btn-ghost btn-sm" type="submit">{% if c.resolved_at %}Reopen{% else %}Resolve{% endif %}</button></form>
+        {% endif %}
+      </div>
+      <div class="pre">{{ c.body }}</div>
+    </div>
+    {% else %}<p class="muted">No comments yet.</p>{% endfor %}
+    {% if policy.can_comment(user, sub) %}
+    <form method="post" action="/submissions/{{ sub.id }}/comments" class="stack">{{ csrf() }}
+      <label for="body">Add a comment</label>
+      <textarea id="body" name="body" rows="3" required placeholder="Ask a question, give feedback, or add context. Owners, co-leads and the reviewer are notified."></textarea>
+      {% if policy.is_staff(user) %}<label class="check"><input type="checkbox" name="is_blocking" value="1"> Blocking – must be resolved before approval</label>{% endif %}
+      <button class="btn btn-secondary" type="submit">Post comment</button>
+    </form>
+    {% endif %}
+  </section>
+
+  <section class="card">
+    <h2 class="section-title">History</h2>
+    <ol class="timeline">
+      {% for e in sub.events|reverse %}
+      <li>
+        <span class="muted small">{{ e.created_at|dt }}</span>
+        <strong>{{ e.actor_name or e.actor_email }}</strong>
+        {% if e.event_type == 'transition' %}moved <em>{{ e.from_status|status_label }}</em> → <strong>{{ e.to_status|status_label }}</strong>
+        {% else %}{{ e.event_type|replace('_',' ') }}{% endif %}
+        {% if e.note %}<div class="pre small">{{ e.note }}</div>{% endif %}
+      </li>
+      {% endfor %}
+    </ol>
+  </section>
+</div>
+
+<aside class="col-side">
+  {% if actions %}
+  <section class="card actions-card">
+    <h3>Actions</h3>
+    {% for a in actions %}
+    <form method="post" action="/submissions/{{ sub.id }}/action" class="action-form {% if a.needs_note or a.key in ('confirm_ready','publish') %}has-note{% endif %}">{{ csrf() }}
+      <input type="hidden" name="action" value="{{ a.key }}">
+      {% if a.key == 'confirm_ready' %}
+        <label>Publishing destination</label>
+        <select name="publish_destination_id" required><option value="">Select destination</option>{% for d in destinations %}<option value="{{ d.id }}" {% if sub.publish_destination_id == d.id %}selected{% endif %}>{{ d.name }}</option>{% endfor %}</select>
+        <p class="small muted">Checklist: fields complete {% if completeness %}✗{% else %}✓{% endif %} · approval recorded {% if sub.approved_version_id %}✓{% else %}✗{% endif %} · export package reviewed (manual)</p>
+      {% elif a.key == 'publish' %}
+        <label>Published URL</label>
+        <input type="url" name="published_url" required placeholder="https://www.amentum.com/...">
+      {% endif %}
+      {% if a.needs_note %}
+        <label>{{ a.note_label }}</label>
+        <textarea name="note" rows="3" required></textarea>
+      {% elif a.key not in ('confirm_ready','publish') %}
+        <input type="hidden" name="note" value="">
+      {% endif %}
+      <button class="btn btn-{{ a.style }} btn-block {% if a.style == 'danger' %}js-confirm{% endif %}" type="submit" data-confirm="Are you sure you want to {{ a.label|lower }}?">{{ a.label }}</button>
+    </form>
+    {% endfor %}
+  </section>
+  {% endif %}
+
+  <section class="card">
+    <h3>Contacts</h3>
+    <ul class="contacts">
+      {% for c in sub.contacts %}
+      <li><span class="muted small">{{ c.role_label }}</span><br><strong>{{ c.name }}</strong><br><a href="mailto:{{ c.email }}">{{ c.email }}</a>{% if c.phone %} · {{ c.phone }}{% endif %}</li>
+      {% endfor %}
+    </ul>
+  </section>
+
+  <section class="card">
+    <h3>Key dates</h3>
+    <dl class="dates">
+      <dt>Created</dt><dd>{{ sub.created_at|dt }}</dd>
+      {% if sub.submitted_at %}<dt>Submitted</dt><dd>{{ sub.submitted_at|dt }}</dd>{% endif %}
+      {% if sub.review_completed_at %}<dt>Review complete</dt><dd>{{ sub.review_completed_at|dt }}</dd>{% endif %}
+      {% if sub.approved_at %}<dt>Approved</dt><dd>{{ sub.approved_at|dt }}</dd>{% endif %}
+      {% if sub.published_at %}<dt>Published</dt><dd>{{ sub.published_at|dt }}</dd>{% endif %}
+      {% if sub.next_review_due %}<dt>Next review due</dt><dd>{{ sub.next_review_due|date }}</dd>{% endif %}
+      <dt>Last action</dt><dd>{{ sub.last_action_at|dt }}</dd>
+      <dt>Views</dt><dd>{{ view_count }}</dd>
+    </dl>
+  </section>
+
+  {% if sub.versions %}
+  <section class="card">
+    <h3>Approved versions</h3>
+    <ul class="small">{% for v in sub.versions %}<li>Revision {{ v.revision }} · {{ v.created_at|dt }}</li>{% endfor %}</ul>
+  </section>
+  {% endif %}
+</aside>
+</div>
+{% endblock %}

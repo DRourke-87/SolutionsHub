@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Audit log{% endblock %}
+{% block content %}
+<h1>Audit log</h1>
+{% include "admin/_nav.html" %}
+<section class="card">
+  <form method="get" class="filters"><input type="search" name="q" value="{{ q }}" placeholder="Filter by actor email or note"><button class="btn btn-secondary" type="submit">Filter</button></form>
+  <table class="table">
+    <thead><tr><th>When</th><th>Actor</th><th>Event</th><th>Submission</th><th>From → To</th><th>Note</th><th>IP</th></tr></thead>
+    <tbody>
+    {% for e in rows %}
+    <tr><td class="muted small">{{ e.created_at|dt }}</td><td>{{ e.actor_email }}</td><td>{{ e.event_type|replace('_',' ') }}</td>
+      <td>{% if e.submission %}<a href="/submissions/{{ e.submission.id }}">{{ e.submission.display_ref }}</a>{% endif %}</td>
+      <td class="small">{% if e.from_status or e.to_status %}{{ e.from_status|status_label }} → {{ e.to_status|status_label }}{% endif %}</td>
+      <td class="small pre">{{ (e.note or '')[:200] }}</td><td class="muted small">{{ e.ip or '' }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

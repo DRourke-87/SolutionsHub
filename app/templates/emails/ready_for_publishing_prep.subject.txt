@@ -1,0 +1,1 @@
+Approved and ready for publishing prep: {{ sub.display_ref }} · {{ sub.offering_name }}

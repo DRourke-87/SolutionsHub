@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}{{ settings.app_name }}{% endblock %} · Amentum</title>
+  <link rel="icon" type="image/png" sizes="32x32" href="/static/img/favicon-32.png">
+  <link rel="apple-touch-icon" href="/static/img/favicon-180.png">
+  <link rel="stylesheet" href="/static/css/app.css">
+  <meta name="htmx-config" content='{"allowEval":false,"includeIndicatorStyles":false}'>
+  <meta name="csrf-token" content="{{ csrf_token }}">
+</head>
+<body hx-headers='{"X-CSRF-Token":"{{ csrf_token }}"}'>
+<header class="topbar">
+  <div class="wrap topbar-inner">
+    <a class="brand" href="/">
+      <img src="/static/img/amentum-logo-white.png" alt="Amentum" class="brand-logo">
+      <span class="brand-divider"></span>
+      <span class="brand-app">{{ settings.app_name }}</span>
+    </a>
+    <nav class="nav" aria-label="Primary">
+      {% if user %}
+        <a href="/" class="{% if request.url.path == '/' %}active{% endif %}">Dashboard</a>
+        <a href="/submissions" class="{% if request.url.path.startswith('/submissions') and request.url.path != '/submissions/new' %}active{% endif %}">Submissions</a>
+        <a href="/submissions/new" class="btn btn-primary btn-sm">New submission</a>
+        {% if user.is_admin %}<a href="/admin" class="{% if request.url.path.startswith('/admin') %}active{% endif %}">Admin</a>{% endif %}
+      {% endif %}
+    </nav>
+    {% if user %}
+    <div class="userchip">
+      <span class="userchip-email" title="{{ user.email }}">{{ user.name_or_email }}</span>
+      {% if user.role_names %}<span class="userchip-roles">{{ user.role_names|join(', ') }}</span>{% endif %}
+      <form method="post" action="/logout" class="inline">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button class="btn btn-ghost btn-sm" type="submit">Sign out</button>
+      </form>
+    </div>
+    {% endif %}
+  </div>
+</header>
+
+<main class="wrap main">
+  {% if flash %}
+    {% for f in flash %}<div class="flash flash-{{ f.kind }}" role="status">{{ f.text }}</div>{% endfor %}
+  {% endif %}
+  {% block content %}{% endblock %}
+</main>
+
+<footer class="footer">
+  <div class="wrap footer-inner">
+    <span>© {{ 2026 }} Amentum Services, Inc. All rights reserved.</span>
+    <span class="muted">{{ settings.app_name }} · internal use · access restricted to the corporate VPN</span>
+  </div>
+</footer>
+<script src="/static/js/htmx.min.js"></script>
+<script src="/static/js/app.js"></script>
+</body>
+</html>

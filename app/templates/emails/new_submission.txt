@@ -1,0 +1,11 @@
+A new Solution / Offering has been submitted and needs a reviewer.
+
+Reference: {{ sub.display_ref }}
+Offering: {{ sub.offering_name }}
+Business group: {{ sub.business_group.name if sub.business_group else '' }}
+Submitted by: {{ sub.created_by_email }}
+
+Start the review here:
+{{ link }}
+
+— {{ app_name }}

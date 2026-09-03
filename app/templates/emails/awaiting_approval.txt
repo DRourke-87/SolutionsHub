@@ -1,0 +1,10 @@
+Review is complete and this offering is ready for an approval decision.
+
+Reference: {{ sub.display_ref }}
+Offering: {{ sub.offering_name }}
+Business group: {{ sub.business_group.name if sub.business_group else '' }}
+
+Review and decide here:
+{{ link }}
+
+— {{ app_name }}

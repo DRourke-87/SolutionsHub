@@ -1,0 +1,11 @@
+{{ approver.name_or_email }} has decided not to approve this offering.
+
+Reference: {{ sub.display_ref }}
+Offering: {{ sub.offering_name }}
+
+Reason:
+{{ note }}
+
+{{ link }}
+
+— {{ app_name }}

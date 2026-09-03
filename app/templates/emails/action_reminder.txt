@@ -1,0 +1,10 @@
+This submission has been waiting on {{ waiting_on }} for {{ days }} business days.
+
+Reference: {{ sub.display_ref }}
+Offering: {{ sub.offering_name }}
+Status: {{ sub.status_enum.label }}
+
+Please take the next action here:
+{{ link }}
+
+— {{ app_name }}

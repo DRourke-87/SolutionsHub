@@ -1,0 +1,1 @@
+Content review due {{ due.strftime('%d %b %Y') }}: {{ sub.display_ref }} · {{ sub.offering_name }}

@@ -1,0 +1,31 @@
+{% macro status_badge(status) -%}
+<span class="badge badge-{{ status }}">{{ status|status_label }}</span>
+{%- endmacro %}
+
+{% macro stepper(sub) -%}
+{% set stages = [Status.SUBMITTED, Status.UNDER_REVIEW, Status.AWAITING_APPROVAL, Status.APPROVED, Status.READY_TO_PUBLISH, Status.PUBLISHED] %}
+{% set current = sub.status_enum %}
+{% set effective = Status.UNDER_REVIEW if current == Status.UPDATES_REQUIRED else current %}
+{% set ns = namespace(idx=-1) %}
+{% for s in stages %}{% if s == effective %}{% set ns.idx = loop.index0 %}{% endif %}{% endfor %}
+<ol class="stepper" aria-label="Workflow progress">
+  {% for s in stages %}
+  <li class="{% if loop.index0 < ns.idx %}done{% elif loop.index0 == ns.idx %}current{% endif %}">
+    <span class="dot"></span><span class="lbl">{{ STATUS_LABELS[s] }}</span>
+  </li>
+  {% endfor %}
+</ol>
+{% if current == Status.UPDATES_REQUIRED %}<p class="stepper-note warn">Updates required before review can continue.</p>
+{% elif current.is_terminal %}<p class="stepper-note muted">{{ current.label }}.</p>{% endif %}
+{%- endmacro %}
+
+{% macro field(label, value, pre=True) -%}
+<div class="field">
+  <div class="field-label">{{ label }}</div>
+  <div class="field-value{% if pre %} pre{% endif %}">{% if value %}{{ value }}{% else %}<span class="muted">—</span>{% endif %}</div>
+</div>
+{%- endmacro %}
+
+{% macro csrf() -%}
+<input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+{%- endmacro %}

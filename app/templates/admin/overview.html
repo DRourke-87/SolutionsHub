@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% from "partials/_macros.html" import status_badge %}
+{% block title %}Admin{% endblock %}
+{% block content %}
+<h1>Administration</h1>
+{% include "admin/_nav.html" %}
+<div class="stat-row">
+  {% for s in Status %}{% if counts.get(s.value) %}<a class="stat" href="/submissions?status={{ s.value }}"><b>{{ counts[s.value] }}</b><span>{{ s.label }}</span></a>{% endif %}{% endfor %}
+  <a class="stat" href="/admin/notifications?status=queued"><b>{{ queued }}</b><span>Emails queued</span></a>
+  <a class="stat {% if failed %}stat-bad{% endif %}" href="/admin/notifications?status=failed"><b>{{ failed }}</b><span>Emails failed</span></a>
+  {% for r in Role %}<a class="stat" href="/admin/users"><b>{{ role_counts.get(r.value, 0) }}</b><span>{{ r.value|capitalize }}s</span></a>{% endfor %}
+</div>
+<div class="layout-2">
+<section class="card col-main">
+  <h2>Longest waiting</h2>
+  <table class="table"><thead><tr><th>Reference</th><th>Offering</th><th>Status</th><th>Waiting on</th><th>Since</th></tr></thead><tbody>
+  {% for s in stale %}<tr><td><a href="/submissions/{{ s.id }}">{{ s.display_ref }}</a></td><td>{{ s.offering_name }}</td><td>{{ status_badge(s.status) }}</td><td>{{ waiting_on(s) }}</td><td class="muted">{{ s.last_action_at|dt }}</td></tr>
+  {% else %}<tr><td colspan="5" class="muted">Nothing in progress.</td></tr>{% endfor %}
+  </tbody></table>
+</section>
+<section class="card col-side">
+  <h2>Overdue content reviews</h2>
+  {% for c in overdue %}<p><a href="/submissions/{{ c.submission.id }}">{{ c.submission.display_ref }}</a> {{ c.submission.offering_name }}<br><span class="muted small">due {{ c.due_at|date }}</span></p>
+  {% else %}<p class="muted">None overdue.</p>{% endfor %}
+</section>
+</div>
+{% endblock %}

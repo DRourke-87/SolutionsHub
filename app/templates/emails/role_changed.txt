@@ -1,0 +1,5 @@
+{{ admin.name_or_email }} has {{ 'granted you the' if granted else 'removed your' }} {{ role }} role in {{ app_name }}.
+
+{{ base_url }}
+
+— {{ app_name }}

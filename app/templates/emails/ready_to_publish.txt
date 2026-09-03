@@ -1,0 +1,9 @@
+The publishing team has confirmed your offering is ready to publish.
+
+Reference: {{ sub.display_ref }}
+Offering: {{ sub.offering_name }}
+Destination: {{ sub.publish_destination.name if sub.publish_destination else '' }}
+
+{{ link }}
+
+— {{ app_name }}

@@ -1,0 +1,9 @@
+It is time for the six-monthly review of your published offering. Please confirm the content, statistics, case studies and proof points are still current, or update them.
+
+Reference: {{ sub.display_ref }}
+Offering: {{ sub.offering_name }}
+Review due: {{ due.strftime('%d %b %Y') }}
+
+{{ link }}
+
+— {{ app_name }}

@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Notifications{% endblock %}
+{% block content %}
+<h1>Notifications</h1>
+{% include "admin/_nav.html" %}
+<section class="card">
+  <div class="chips"><a class="chip {% if not status %}active{% endif %}" href="/admin/notifications">All</a><a class="chip {% if status=='queued' %}active{% endif %}" href="/admin/notifications?status=queued">Queued</a><a class="chip {% if status=='sent' %}active{% endif %}" href="/admin/notifications?status=sent">Sent</a><a class="chip {% if status=='failed' %}active{% endif %}" href="/admin/notifications?status=failed">Failed</a></div>
+  <table class="table">
+    <thead><tr><th>Queued</th><th>To</th><th>Template</th><th>Subject</th><th>Status</th><th>Attempts</th><th>Error</th><th></th></tr></thead>
+    <tbody>
+    {% for n in rows %}
+    <tr><td class="muted small">{{ n.queued_at|dt }}</td><td>{{ n.to_email }}</td><td>{{ n.template }}</td><td>{{ n.subject }}</td>
+      <td><span class="badge badge-{{ 'approved' if n.status=='sent' else ('rejected' if n.status=='failed' else 'submitted') }}">{{ n.status }}</span></td>
+      <td>{{ n.attempts }}</td><td class="small">{{ (n.error or '')[:120] }}</td>
+      <td>{% if n.status != 'sent' %}<form method="post" action="/admin/notifications/{{ n.id }}/retry" class="inline"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="btn btn-ghost btn-sm" type="submit">Retry</button></form>{% endif %}</td></tr>
+    {% else %}<tr><td colspan="8" class="muted">No notifications.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

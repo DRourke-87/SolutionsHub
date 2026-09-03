@@ -1,0 +1,1 @@
+{{ app_name }}: your {{ role }} role has been {{ 'granted' if granted else 'removed' }}

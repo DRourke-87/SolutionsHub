@@ -1,0 +1,8 @@
+Your offering has been approved by {{ approver.name_or_email }} and is being prepared for publishing.
+
+Reference: {{ sub.display_ref }}
+Offering: {{ sub.offering_name }}
+
+{{ link }}
+
+— {{ app_name }}

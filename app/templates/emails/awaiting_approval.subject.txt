@@ -1,0 +1,1 @@
+Awaiting your approval: {{ sub.display_ref }} · {{ sub.offering_name }}

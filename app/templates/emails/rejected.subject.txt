@@ -1,0 +1,1 @@
+Not approved: {{ sub.display_ref }} · {{ sub.offering_name }}

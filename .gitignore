@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+.venv/
+venv/
+.env
+*.local.env
+/var/
+/data/
+/uploads/
+*.sqlite3
+*.db
+.DS_Store
+infra/*.local.bicepparam

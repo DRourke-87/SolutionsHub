@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% from "partials/_macros.html" import status_badge %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Welcome{% if user.display_name %}, {{ user.display_name.split(' ')[0] }}{% endif %}</h1>
+    <p class="lead">Capture a new Solution / Offering, track it through review and approval, and keep published content current.</p>
+  </div>
+  <a href="/submissions/new" class="btn btn-primary">New submission</a>
+</div>
+
+{% if queue or counts %}
+<section class="card">
+  <div class="card-head"><h2>Needs your action</h2>
+    <div class="chips">
+      {% for s in PIPELINE_STAGES %}{% if counts.get(s.value) %}<a class="chip" href="/submissions?status={{ s.value }}">{{ s.label }} <b>{{ counts[s.value] }}</b></a>{% endif %}{% endfor %}
+    </div>
+  </div>
+  {% if queue %}
+  <table class="table">
+    <thead><tr><th>Reference</th><th>Offering</th><th>Business group</th><th>Status</th><th>Waiting on</th><th>Last action</th></tr></thead>
+    <tbody>
+    {% for s in queue %}
+      <tr>
+        <td><a href="/submissions/{{ s.id }}">{{ s.display_ref }}</a></td>
+        <td><a href="/submissions/{{ s.id }}">{{ s.offering_name }}</a></td>
+        <td>{{ s.business_group.name if s.business_group else '' }}</td>
+        <td>{{ status_badge(s.status) }}</td>
+        <td>{{ waiting_on(s) }}</td>
+        <td class="muted">{{ s.last_action_at|dt }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<p class="muted">Nothing is waiting on you right now.</p>{% endif %}
+</section>
+{% endif %}
+
+<section class="card">
+  <div class="card-head"><h2>My submissions</h2><a href="/submissions" class="muted small">View all</a></div>
+  {% if mine %}
+  <table class="table">
+    <thead><tr><th>Reference</th><th>Offering</th><th>Status</th><th>Waiting on</th><th>Updated</th></tr></thead>
+    <tbody>
+    {% for s in mine %}
+      <tr>
+        <td><a href="/submissions/{{ s.id }}">{{ s.display_ref }}</a></td>
+        <td><a href="/submissions/{{ s.id }}">{{ s.offering_name or '(untitled draft)' }}</a></td>
+        <td>{{ status_badge(s.status) }}</td>
+        <td>{{ waiting_on(s) }}</td>
+        <td class="muted">{{ s.updated_at|dt }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty">
+    <p>You have not submitted anything yet.</p>
+    <a href="/submissions/new" class="btn btn-primary">Start a new Solution / Offering</a>
+  </div>
+  {% endif %}
+</section>
+
+<section class="card card-muted">
+  <h2>How it works</h2>
+  <ol class="howto">
+    <li><b>Submit</b> the intake form with your offering details and supporting files.</li>
+    <li><b>Review</b> – a reviewer validates the content and may request updates.</li>
+    <li><b>Approve</b> – an approver signs off; the approved version is recorded.</li>
+    <li><b>Publish</b> – the publishing team prepares and publishes the content, then you confirm it is still current every six months.</li>
+  </ol>
+</section>
+{% endblock %}

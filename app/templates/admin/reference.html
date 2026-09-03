@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Reference data{% endblock %}
+{% block content %}
+<h1>Reference data</h1>
+{% include "admin/_nav.html" %}
+<div class="layout-2">
+<section class="card col-main">
+  <h2>Business groups</h2>
+  <form method="post" action="/admin/reference/business-groups" class="filters"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><input name="name" required placeholder="New business group name"><button class="btn btn-secondary" type="submit">Add</button></form>
+  <ul class="ref-list">{% for g in groups %}<li class="{% if not g.is_active %}muted{% endif %}">{{ g.name }} <form method="post" action="/admin/reference/business-groups/{{ g.id }}/toggle" class="inline"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="btn btn-ghost btn-sm" type="submit">{% if g.is_active %}Deactivate{% else %}Activate{% endif %}</button></form></li>{% endfor %}</ul>
+
+  <h2>Publishing destinations</h2>
+  <form method="post" action="/admin/reference/destinations" class="filters"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><input name="name" required placeholder="Destination name"><input name="base_url" type="url" placeholder="https://… (optional)"><button class="btn btn-secondary" type="submit">Add</button></form>
+  <ul class="ref-list">{% for d in dests %}<li class="{% if not d.is_active %}muted{% endif %}">{{ d.name }} <span class="muted small">{{ d.base_url or '' }}</span> <form method="post" action="/admin/reference/destinations/{{ d.id }}/toggle" class="inline"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="btn btn-ghost btn-sm" type="submit">{% if d.is_active %}Deactivate{% else %}Activate{% endif %}</button></form></li>{% endfor %}</ul>
+</section>
+<section class="card col-side">
+  <h2>Capability taxonomy</h2>
+  <form method="post" action="/admin/reference/capabilities" class="stack"><input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <select name="area_id" required>{% for a in areas %}<option value="{{ a.id }}">{{ a.name }}</option>{% endfor %}</select>
+    <input name="name" required placeholder="New capability name"><button class="btn btn-secondary btn-sm" type="submit">Add capability</button></form>
+  {% for a in areas %}
+  <h4>{{ a.name }}</h4>
+  <ul class="ref-list small">{% for c in a.capabilities %}<li class="{% if not c.is_active %}muted{% endif %}">{{ c.name }} <form method="post" action="/admin/reference/capabilities/{{ c.id }}/toggle" class="inline"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="btn btn-ghost btn-sm" type="submit">{% if c.is_active %}Hide{% else %}Show{% endif %}</button></form></li>{% endfor %}</ul>
+  {% endfor %}
+</section>
+</div>
+{% endblock %}

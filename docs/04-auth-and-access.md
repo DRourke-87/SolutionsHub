@@ -60,7 +60,7 @@ sequenceDiagram
     participant B as Browser (on VPN)
     participant E as App Service edge
     participant A as SolutionsHub app
-    participant D as Azure SQL
+    participant D as PostgreSQL
     participant M as Communication Services Email
     participant X as User mailbox
 
@@ -100,8 +100,8 @@ sequenceDiagram
 
 ### 3.4 Allowed email domains
 
-- Configured as a list (e.g., `amentum.com` and the second domain), editable by Admins in `app_settings`
-  and seeded from a Bicep parameter.
+- Configured as the `ALLOWED_EMAIL_DOMAINS` application setting (Bicep parameter `allowedEmailDomains`):
+  `amentum.com`, `global.amentum.com`, `amentumcms.com`.
 - Matching is exact on the domain part after lowercasing; sub-domains must be listed explicitly.
 - The login response is identical whether or not the address is allowed, to avoid enumerating valid
   domains or addresses. Rejected attempts are logged.
@@ -183,21 +183,21 @@ Rate-limit counters live in the database (small volume) so no extra cache servic
 
 ## 7. Application and platform hardening
 
-- Managed identity for all Azure calls; no connection strings with secrets. Azure SQL contained user
-  created for the app's identity with least privilege (`db_datareader`, `db_datawriter`, execute on the
-  sequence; migrations run with a separate elevated identity from CI).
+- Managed identity for Blob Storage and Key Vault. The PostgreSQL connection string (generated password,
+  `sslmode=require`) and the Communication Services connection string are Key Vault secrets consumed through
+  App Service Key Vault references, so they never appear in app settings, source control or CI logs.
 - Key Vault holds the session signing key and any third-party credential; App Service reads via Key Vault
   references so secrets never appear in the portal's app-settings view in clear text.
 - Security headers: `Content-Security-Policy` (self only, nonce for the HTMX script), `X-Content-Type-Options`,
   `Referrer-Policy`, `Permissions-Policy`, HSTS.
-- Dependency scanning (pip-audit or Dependabot) and container image scanning in CI; pinned base image.
+- Dependency scanning (pip-audit or Dependabot) in CI; pinned Python runtime on App Service.
 - Diagnostic logs and Application Insights with PII scrubbing of email addresses in traces (email is kept
   in the audit table, not in telemetry).
 - Storage account: shared-key access disabled (identity/SAS only), minimum TLS 1.2, soft delete and
   versioning on.
-- Azure SQL: Microsoft Entra-only authentication for the *server* (the app's managed identity and the CI
-  identity are Entra principals; this is unrelated to end-user identity), auditing to Log Analytics,
-  firewall allowing Azure services only.
+- PostgreSQL Flexible Server: TLS required, password authentication with a Key Vault-held secret, firewall
+  rule limited to Azure services. Hardening steps: restrict to the web app's outbound IPs or VNet
+  integration, and switch to Entra (managed identity) authentication.
 
 ---
 
