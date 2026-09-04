@@ -13,3 +13,4 @@ venv/
 *.db
 .DS_Store
 infra/*.local.bicepparam
+.azure

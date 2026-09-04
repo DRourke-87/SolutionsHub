@@ -70,7 +70,17 @@ def is_allowed_email(email: str) -> bool:
     local, domain = email.split("@")
     if not local or not domain:
         return False
-    return domain in get_settings().allowed_domains
+    for rule in get_settings().allowed_domains:
+        if not rule:
+            continue
+        if rule.startswith("*."):
+            suffix = rule[2:]
+            if domain == suffix or domain.endswith(f".{suffix}"):
+                return True
+            continue
+        if domain == rule:
+            return True
+    return False
 
 
 # --------------------------------------------------------------------------- CSRF

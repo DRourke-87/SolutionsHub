@@ -53,7 +53,18 @@ def login_submit(
 
 
 @router.get("/auth/verify")
-def verify(request: Request, t: str = "", db: Session = Depends(get_db)):
+def verify_landing(request: Request, t: str = "", db: Session = Depends(get_db)):
+    request.state.user = None
+    err = authsvc.magic_link_error(db, t)
+    if err:
+        db.commit()
+        return render(request, "login.html", status_code=400, next="/", error=err)
+    db.commit()
+    return render(request, "verify_link.html", token=t)
+
+
+@router.post("/auth/verify", dependencies=[Depends(csrf_protect)])
+def verify_submit(request: Request, t: str = Form(""), db: Session = Depends(get_db)):
     request.state.user = None
     try:
         session, next_path = authsvc.verify_magic_link(db, t, client_ip(request), request.headers.get("user-agent"))

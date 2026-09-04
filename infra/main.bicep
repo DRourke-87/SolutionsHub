@@ -16,7 +16,7 @@ param environment string = 'prod'
 param location string = resourceGroup().location
 
 @description('Comma-separated list of email domains permitted to sign in.')
-param allowedEmailDomains string = 'amentum.com,global.amentum.com,amentumcms.com'
+param allowedEmailDomains string = 'amentum.com,global.amentum.com,amentumcms.com,us.amentum.com,*.amentum.com'
 
 @description('Email address that becomes the first Admin on first sign-in.')
 param bootstrapAdminEmail string

@@ -14,7 +14,7 @@ os.environ.update(
         "SECRET_KEY": "test-secret-key-0123456789abcdef",
         "BASE_URL": "http://testserver",
         "DATABASE_URL": os.environ.get("TEST_DATABASE_URL", f"sqlite:///{_TMP}/test.sqlite3"),
-        "ALLOWED_EMAIL_DOMAINS": "amentum.com,global.amentum.com,amentumcms.com",
+        "ALLOWED_EMAIL_DOMAINS": "amentum.com,global.amentum.com,amentumcms.com,us.amentum.com,*.amentum.com",
         "BOOTSTRAP_ADMIN_EMAIL": "admin@amentum.com",
         "EMAIL_BACKEND": "memory",
         "STORAGE_BACKEND": "local",
@@ -115,7 +115,12 @@ def login(client: TestClient, outbox: list, email: str) -> str:
     assert r.status_code == 200, r.text
     assert len(outbox) == before + 1, "expected one sign-in email"
     link = re.search(r"(http://testserver/auth/verify\?t=[^\s]+)", outbox[-1]["text"]).group(1)
-    r = client.get(link.replace("http://testserver", ""))
+    verify_path = link.replace("http://testserver", "")
+    r = client.get(verify_path)
+    assert r.status_code == 200, r.text
+    verify_csrf = csrf_from(r.text)
+    raw_token = re.search(r"t=([^&\s]+)", verify_path).group(1)
+    r = client.post("/auth/verify", data={"csrf_token": verify_csrf, "t": raw_token})
     assert r.status_code == 303, r.text
     home = client.get("/")
     assert home.status_code == 200

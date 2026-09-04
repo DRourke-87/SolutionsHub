@@ -35,6 +35,26 @@ class RateLimited(LoginError):
     pass
 
 
+def _is_expired(expires_at, now) -> bool:
+    if expires_at is None:
+        return True
+    if getattr(expires_at, "tzinfo", None) is None and getattr(now, "tzinfo", None) is not None:
+        now = now.replace(tzinfo=None)
+    return expires_at < now
+
+
+def _seconds_between(later, earlier) -> int:
+    if getattr(later, "tzinfo", None) is None and getattr(earlier, "tzinfo", None) is not None:
+        earlier = earlier.replace(tzinfo=None)
+    return int((later - earlier).total_seconds())
+
+
+def _elapsed_seconds(later, earlier) -> int:
+    if getattr(earlier, "tzinfo", None) is None and getattr(later, "tzinfo", None) is not None:
+        later = later.replace(tzinfo=None)
+    return int((later - earlier).total_seconds())
+
+
 def safe_next_path(path: str | None) -> str:
     if not path or not path.startswith("/") or path.startswith("//") or "\\" in path:
         return "/"
@@ -92,7 +112,7 @@ def verify_magic_link(db: Session, raw_token: str, ip: str, user_agent: str | No
         raise RateLimited("Too many sign-in attempts. Please wait and try again.")
     token = db.get(MagicLinkToken, hash_token(raw_token or ""))
     now = utcnow()
-    if token is None or token.used_at is not None or token.expires_at < now:
+    if token is None or token.used_at is not None or _is_expired(token.expires_at, now):
         raise LoginError("This sign-in link is invalid or has expired. Please request a new one.")
     token.used_at = now
 
@@ -137,6 +157,14 @@ def verify_magic_link(db: Session, raw_token: str, ip: str, user_agent: str | No
     return session, safe_next_path(token.redirect_path)
 
 
+def magic_link_error(db: Session, raw_token: str) -> str | None:
+    token = db.get(MagicLinkToken, hash_token(raw_token or ""))
+    now = utcnow()
+    if token is None or token.used_at is not None or _is_expired(token.expires_at, now):
+        return "This sign-in link is invalid or has expired. Please request a new one."
+    return None
+
+
 def _maybe_bootstrap_admin(db: Session, user: User) -> None:
     bootstrap = get_settings().bootstrap_admin_email
     if not bootstrap or normalise_email(bootstrap) != user.email:
@@ -160,7 +188,7 @@ def _maybe_bootstrap_admin(db: Session, user: User) -> None:
 # --------------------------------------------------------------------------- sessions
 def set_session_cookie(response, session: UserSession) -> None:
     settings = get_settings()
-    max_age = int((session.absolute_expires_at - utcnow()).total_seconds())
+    max_age = _seconds_between(session.absolute_expires_at, utcnow())
     response.set_cookie(
         SESSION_COOKIE,
         sign_value(session.id),
@@ -184,7 +212,7 @@ def load_session(db: Session, request: Request) -> tuple[UserSession | None, Use
     now = utcnow()
     if session is None or session.revoked_at is not None:
         return None, None
-    if session.expires_at < now or session.absolute_expires_at < now:
+    if _is_expired(session.expires_at, now) or _is_expired(session.absolute_expires_at, now):
         return None, None
     user = db.execute(
         select(User)
@@ -194,7 +222,7 @@ def load_session(db: Session, request: Request) -> tuple[UserSession | None, Use
     if user is None or user.is_disabled:
         return None, None
     # Sliding expiry, throttled to one write per 5 minutes
-    if (now - session.last_seen_at) > timedelta(minutes=5):
+    if _elapsed_seconds(now, session.last_seen_at) > 300:
         settings = get_settings()
         session.last_seen_at = now
         session.expires_at = min(now + timedelta(hours=settings.session_sliding_hours), session.absolute_expires_at)
@@ -256,6 +284,7 @@ __all__ = [
     "RateLimited",
     "client_ip",
     "request_magic_link",
+    "magic_link_error",
     "verify_magic_link",
     "set_session_cookie",
     "clear_session_cookie",

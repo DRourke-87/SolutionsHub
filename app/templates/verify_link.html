@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}Confirm sign-in{% endblock %}
+{% block content %}
+<div class="auth-card">
+  <h1>Confirm sign-in</h1>
+  <p class="lead">Your sign-in link is valid. Click continue to complete sign-in.</p>
+  <form method="post" action="/auth/verify" class="stack">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <input type="hidden" name="t" value="{{ token }}">
+    <button class="btn btn-primary" type="submit">Continue</button>
+  </form>
+  <p class="muted small">If this was not you, close this page and do not continue.</p>
+</div>
+{% endblock %}
