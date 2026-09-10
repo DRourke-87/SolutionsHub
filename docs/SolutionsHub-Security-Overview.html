@@ -1,0 +1,595 @@
+<title>SolutionsHub Security Overview</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Serif:ital,wght@0,400;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --ground: #FAFBFC;
+    --surface: #FFFFFF;
+    --surface-2: #F3F6F8;
+    --ink: #16202E;
+    --ink-2: #3C4858;
+    --slate: #5E6B7A;
+    --line: #DCE3EA;
+    --line-2: #C3CEDA;
+    --accent: #2A8F39;
+    --accent-bright: #39B54A;
+    --accent-wash: #EBF7ED;
+    --warn: #9C6612;
+    --warn-wash: #FDF6E7;
+    --sans: "IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    --serif: "IBM Plex Serif", Georgia, "Times New Roman", serif;
+    --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #0E141B;
+      --surface: #151E28;
+      --surface-2: #1B2733;
+      --ink: #E6ECF2;
+      --ink-2: #C2CCD8;
+      --slate: #94A3B2;
+      --line: #263442;
+      --line-2: #354655;
+      --accent: #5CC96B;
+      --accent-bright: #6FD97D;
+      --accent-wash: #162C1D;
+      --warn: #D9A441;
+      --warn-wash: #2A2313;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #0E141B;
+    --surface: #151E28;
+    --surface-2: #1B2733;
+    --ink: #E6ECF2;
+    --ink-2: #C2CCD8;
+    --slate: #94A3B2;
+    --line: #263442;
+    --line-2: #354655;
+    --accent: #5CC96B;
+    --accent-bright: #6FD97D;
+    --accent-wash: #162C1D;
+    --warn: #D9A441;
+    --warn-wash: #2A2313;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding-inline: 24px;
+    padding-block: 48px 72px;
+  }
+  .prose { max-width: 68ch; }
+
+  /* ---------- masthead ---------- */
+  .masthead { border-bottom: 3px solid var(--accent); padding-bottom: 26px; margin-bottom: 34px; }
+  .org {
+    font-family: var(--mono); font-size: 12px; letter-spacing: .16em; text-transform: uppercase;
+    color: var(--accent); font-weight: 500; margin: 0 0 14px;
+  }
+  h1 { font-size: clamp(30px, 4.2vw, 44px); line-height: 1.12; letter-spacing: -.02em; margin: 0 0 14px; text-wrap: balance; font-weight: 600; }
+  .standfirst { font-family: var(--serif); font-size: 19px; line-height: 1.55; color: var(--ink-2); margin: 0; max-width: 62ch; }
+  .meta {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(158px, 1fr));
+    gap: 18px 26px; margin-top: 28px; padding-top: 22px; border-top: 1px solid var(--line);
+  }
+  .meta div { display: flex; flex-direction: column; gap: 3px; }
+  .meta dt, .meta .k {
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--slate);
+  }
+  .meta .v { font-size: 14.5px; font-weight: 500; }
+
+  /* ---------- sections ---------- */
+  section { margin-top: 56px; scroll-margin-top: 20px; }
+  h2 {
+    font-size: 24px; letter-spacing: -.01em; margin: 0 0 8px; font-weight: 600;
+    display: flex; align-items: baseline; gap: 14px; text-wrap: balance;
+  }
+  h2 .num {
+    font-family: var(--mono); font-size: 14px; color: var(--accent); font-weight: 500;
+    flex: none; font-variant-numeric: tabular-nums;
+  }
+  h3 { font-size: 16.5px; margin: 30px 0 8px; font-weight: 600; }
+  p { margin: 0 0 14px; }
+  .lead { font-family: var(--serif); font-size: 17.5px; color: var(--ink-2); }
+  a { color: var(--accent); }
+
+  /* ---------- quick answers ---------- */
+  .qa { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 3px; overflow: hidden; }
+  .qa > div { background: var(--surface); padding: 16px 18px; }
+  .qa .q { font-size: 13px; font-weight: 600; color: var(--slate); margin: 0 0 5px; }
+  .qa .a { font-size: 14.5px; margin: 0; line-height: 1.5; }
+  .qa .a b { font-weight: 600; }
+
+  /* ---------- figures ---------- */
+  figure { margin: 26px 0 0; }
+  .fig-frame {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 3px;
+    padding: 22px 20px; overflow-x: auto;
+  }
+  .fig-frame svg { display: block; width: 100%; min-width: 620px; height: auto; color: var(--ink-2); }
+  figcaption {
+    font-size: 13px; color: var(--slate); margin-top: 12px; max-width: 74ch; line-height: 1.55;
+    padding-left: 13px; border-left: 2px solid var(--line-2);
+  }
+  .svg-box { fill: var(--surface); stroke: currentColor; stroke-width: 1.25; }
+  .svg-box-alt { fill: var(--surface-2); stroke: currentColor; stroke-width: 1.25; }
+  .svg-t { font-family: var(--sans); font-size: 13px; font-weight: 600; fill: var(--ink); }
+  .svg-s { font-family: var(--sans); font-size: 11px; fill: var(--slate); font-weight: 400; }
+  .svg-l { font-family: var(--mono); font-size: 10.5px; fill: var(--slate); letter-spacing: .02em; }
+  .svg-zone { fill: none; stroke: var(--line-2); stroke-width: 1.25; stroke-dasharray: 5 4; }
+  .svg-zone-t { font-family: var(--mono); font-size: 10.5px; fill: var(--slate); letter-spacing: .09em; text-transform: uppercase; }
+  .svg-line { stroke: currentColor; stroke-width: 1.4; fill: none; }
+  .svg-accent { stroke: var(--accent-bright); stroke-width: 1.6; fill: none; }
+  .svg-accent-t { font-family: var(--mono); font-size: 10.5px; fill: var(--accent); }
+  .lifeline { stroke: var(--line-2); stroke-width: 1.25; stroke-dasharray: 3 4; }
+
+  /* ---------- tables ---------- */
+  .t-scroll { overflow-x: auto; margin-top: 20px; }
+  table { border-collapse: collapse; width: 100%; font-size: 14.5px; min-width: 560px; }
+  th, td { text-align: left; padding: 11px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  thead th {
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase;
+    color: var(--slate); font-weight: 500; border-bottom: 1px solid var(--line-2); white-space: nowrap;
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  td code, td .mono, .mono { font-family: var(--mono); font-size: 13px; }
+  .svc { font-weight: 600; }
+  .svc span { display: block; font-weight: 400; font-size: 13px; color: var(--slate); margin-top: 2px; }
+
+  /* ---------- callouts ---------- */
+  .note {
+    margin-top: 22px; padding: 16px 18px; background: var(--surface); border: 1px solid var(--line);
+    border-left: 3px solid var(--accent); border-radius: 2px; font-size: 14.5px;
+  }
+  .note.warn { border-left-color: var(--warn); background: var(--warn-wash); }
+  .note p:last-child { margin-bottom: 0; }
+  .note .h { font-weight: 600; margin: 0 0 5px; font-size: 14.5px; }
+
+  ul.tick { list-style: none; padding: 0; margin: 16px 0 0; display: grid; gap: 9px; }
+  ul.tick li { padding-left: 24px; position: relative; font-size: 15px; }
+  ul.tick li::before {
+    content: ""; position: absolute; left: 4px; top: .55em; width: 7px; height: 7px;
+    border-radius: 50%; background: var(--accent);
+  }
+  ul.plain { padding-left: 20px; margin: 12px 0 0; }
+  ul.plain li { margin-bottom: 7px; }
+
+  .pill {
+    display: inline-block; font-family: var(--mono); font-size: 11px; padding: 2px 8px;
+    border-radius: 2px; background: var(--accent-wash); color: var(--accent); font-weight: 500;
+    white-space: nowrap;
+  }
+  .pill.plan { background: var(--warn-wash); color: var(--warn); }
+
+  footer {
+    margin-top: 64px; padding-top: 22px; border-top: 1px solid var(--line);
+    font-size: 13px; color: var(--slate); display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+  }
+
+  @media (max-width: 600px) {
+    .wrap { padding-block: 34px 52px; }
+    h2 { flex-direction: column; gap: 2px; }
+  }
+  @media print {
+    body { background: #fff; }
+    .wrap { max-width: none; padding: 0; }
+    section { break-inside: avoid-page; }
+    .fig-frame { break-inside: avoid; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <p class="org">Amentum · Internal</p>
+    <h1>SolutionsHub Security Overview</h1>
+    <p class="standfirst">A web application that captures new Amentum Solutions and Offerings, routes them through review and approval, and publishes the approved result. This note describes the architecture, the data it holds and how people sign in — prepared for IT and Cyber review.</p>
+    <div class="meta">
+      <div><span class="k">Document</span><span class="v">Security overview v1.0</span></div>
+      <div><span class="k">Date</span><span class="v">10 September 2026</span></div>
+      <div><span class="k">Status</span><span class="v">Development / pre-pilot</span></div>
+      <div><span class="k">Owner</span><span class="v">Darren Rourke</span></div>
+      <div><span class="k">Hosting</span><span class="v">Microsoft Azure (PaaS)</span></div>
+    </div>
+  </header>
+
+  <section id="summary">
+    <h2><span class="num">01</span> What we are asking you to review</h2>
+    <div class="prose">
+      <p class="lead">SolutionsHub replaces a Microsoft Form plus manual email chasing with a single tracked process, from submission through review, approval and publication.</p>
+      <p>It is built entirely from Azure platform services in one resource group, and holds internal business content about Amentum offerings plus the work contact details of the people who own them. It stores no passwords and processes no payment data.</p>
+      <p>Two design decisions need your explicit agreement, and both are set out in full below: the application is reachable from the public internet with access controlled by identity rather than network location (§05), and it authenticates people by emailing a one-time link to an Amentum mailbox rather than through corporate SSO (§05), because its users sit across two unconnected domains.</p>
+    </div>
+
+    <h3>Quick answers</h3>
+    <div class="qa">
+      <div><p class="q">Who can sign in?</p><p class="a">Only holders of an <b>@amentum.com</b>, <b>@global.amentum.com</b> or <b>@amentumcms.com</b> mailbox. No other address can obtain access.</p></div>
+      <div><p class="q">Where does the data live?</p><p class="a">One Azure resource group in a single region. Nothing leaves Azure except outbound notification email.</p></div>
+      <div><p class="q">Are passwords stored?</p><p class="a">No. The service is passwordless, so there are no password hashes to breach or reset.</p></div>
+      <div><p class="q">Is there an audit trail?</p><p class="a">Yes. Every sign-in, approval and status change is written to an append-only table with actor, timestamp and source IP.</p></div>
+      <div><p class="q">Third parties involved?</p><p class="a">Microsoft Azure only, plus GitHub for source control and deployment. No other processor.</p></div>
+      <div><p class="q">Is data encrypted?</p><p class="a">TLS 1.2+ in transit everywhere; Azure platform encryption at rest on the database and file storage.</p></div>
+      <div><p class="q">What is the blast radius?</p><p class="a">Internal marketing and capability content, plus names and work email addresses. No customer, classified or personal-sensitive data.</p></div>
+      <div><p class="q">Can access be revoked?</p><p class="a">Immediately. An administrator disables the account, which kills every active session and blocks new sign-in links.</p></div>
+    </div>
+  </section>
+
+  <section id="architecture">
+    <h2><span class="num">02</span> Architecture</h2>
+    <div class="prose">
+      <p>Five managed Azure services in one resource group. There are no virtual machines to patch, no containers to maintain and no inbound connections from anywhere other than a user's browser.</p>
+    </div>
+
+    <figure>
+      <div class="fig-frame">
+        <svg viewBox="0 0 1010 480" role="img" aria-label="Users on any network reach the SolutionsHub App Service over HTTPS. The App Service connects to PostgreSQL, Blob Storage, Communication Services Email and Application Insights inside one Azure resource group. Communication Services sends sign-in links to the user's Amentum mailbox, and the user opens that link back in their browser.">
+          <defs>
+            <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor"></path>
+            </marker>
+            <marker id="ah-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#39B54A"></path>
+            </marker>
+          </defs>
+
+          <rect class="svg-zone" x="204" y="30" width="556" height="356" rx="4"></rect>
+          <text class="svg-zone-t" x="220" y="52">Azure subscription · one resource group · single region</text>
+
+          <rect class="svg-box-alt" x="16" y="168" width="152" height="96" rx="3"></rect>
+          <text class="svg-t" x="92" y="205" text-anchor="middle">Amentum staff</text>
+          <text class="svg-s" x="92" y="223" text-anchor="middle">any network,</text>
+          <text class="svg-s" x="92" y="239" text-anchor="middle">any device</text>
+
+          <rect class="svg-box" x="228" y="148" width="168" height="136" rx="3"></rect>
+          <text class="svg-t" x="312" y="196" text-anchor="middle">App Service</text>
+          <text class="svg-s" x="312" y="215" text-anchor="middle">Linux · Python</text>
+          <text class="svg-s" x="312" y="231" text-anchor="middle">the application</text>
+          <text class="svg-s" x="312" y="253" text-anchor="middle">HTTPS only · TLS 1.2+</text>
+
+          <line class="svg-line" x1="168" y1="216" x2="222" y2="216" marker-end="url(#ah)"></line>
+          <text class="svg-l" x="195" y="205" text-anchor="middle">HTTPS</text>
+
+          <line class="svg-line" x1="396" y1="216" x2="486" y2="216"></line>
+          <line class="svg-line" x1="486" y1="96" x2="486" y2="336"></line>
+          <line class="svg-line" x1="486" y1="96" x2="514" y2="96" marker-end="url(#ah)"></line>
+          <line class="svg-line" x1="486" y1="176" x2="514" y2="176" marker-end="url(#ah)"></line>
+          <line class="svg-line" x1="486" y1="256" x2="514" y2="256" marker-end="url(#ah)"></line>
+          <line class="svg-line" x1="486" y1="336" x2="514" y2="336" marker-end="url(#ah)"></line>
+          <text class="svg-l" x="441" y="207" text-anchor="middle">TLS 1.2</text>
+
+          <rect class="svg-box" x="520" y="64" width="216" height="64" rx="3"></rect>
+          <text class="svg-t" x="536" y="92">PostgreSQL Flexible Server</text>
+          <text class="svg-s" x="536" y="110">submissions, roles, audit trail</text>
+
+          <rect class="svg-box" x="520" y="144" width="216" height="64" rx="3"></rect>
+          <text class="svg-t" x="536" y="172">Blob Storage</text>
+          <text class="svg-s" x="536" y="190">uploaded supporting files</text>
+
+          <rect class="svg-box" x="520" y="224" width="216" height="64" rx="3"></rect>
+          <text class="svg-t" x="536" y="252">Communication Services</text>
+          <text class="svg-s" x="536" y="270">outbound email only</text>
+
+          <rect class="svg-box" x="520" y="304" width="216" height="64" rx="3"></rect>
+          <text class="svg-t" x="536" y="332">Application Insights</text>
+          <text class="svg-s" x="536" y="350">logs and telemetry</text>
+
+          <line class="svg-line" x1="736" y1="256" x2="834" y2="256" marker-end="url(#ah)"></line>
+          <text class="svg-l" x="785" y="246" text-anchor="middle">sign-in link</text>
+
+          <rect class="svg-box-alt" x="840" y="224" width="156" height="64" rx="3"></rect>
+          <text class="svg-t" x="918" y="252" text-anchor="middle">Amentum mailbox</text>
+          <text class="svg-s" x="918" y="270" text-anchor="middle">Microsoft 365</text>
+
+          <path class="svg-accent" d="M 918 288 L 918 448 L 92 448 L 92 270" marker-end="url(#ah-a)" stroke-dasharray="5 4"></path>
+          <text class="svg-accent-t" x="505" y="438" text-anchor="middle">user opens the one-time link in their browser</text>
+        </svg>
+      </div>
+      <figcaption>Every inbound connection is a browser reaching the App Service over HTTPS. The four backing services are reachable only by the application, never directly by a user. The green path is the authentication loop: the sign-in link travels out by email and returns through the user's own browser — the mechanism described in §05.</figcaption>
+    </figure>
+
+    <div class="t-scroll">
+      <table>
+        <thead><tr><th scope="col">Azure service</th><th scope="col">Role in the solution</th><th scope="col">Security posture</th></tr></thead>
+        <tbody>
+          <tr>
+            <td class="svc">App Service<span>Linux, Python, B1 plan</span></td>
+            <td>Hosts the web application. The only component users reach.</td>
+            <td>HTTPS enforced, TLS 1.2 minimum, FTP disabled, HSTS and a strict Content Security Policy on every response.</td>
+          </tr>
+          <tr>
+            <td class="svc">PostgreSQL<span>Flexible Server, Burstable</span></td>
+            <td>Submissions, role assignments, comments and the audit trail.</td>
+            <td>TLS required on every connection. Reachable only from Azure services, not the public internet. Point-in-time restore for 7 days.</td>
+          </tr>
+          <tr>
+            <td class="svc">Blob Storage<span>StorageV2, LRS</span></td>
+            <td>Files attached to a submission.</td>
+            <td>Private container, anonymous access disabled. Files are served only through the application after a permission check. Soft delete 30 days, versioning on.</td>
+          </tr>
+          <tr>
+            <td class="svc">Communication Services<span>Email</span></td>
+            <td>Sends sign-in links and workflow notifications.</td>
+            <td>Outbound only — it cannot receive mail and exposes no inbound surface.</td>
+          </tr>
+          <tr>
+            <td class="svc">Application Insights<span>on Log Analytics</span></td>
+            <td>Errors, performance and availability monitoring.</td>
+            <td>Retained 30 days with a daily ingestion cap. Email addresses are kept in the audit table, not in telemetry.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="note">
+      <p class="h">Deployment</p>
+      <p>All infrastructure is defined as code (Azure Bicep) and deployed from GitHub Actions, so the running configuration is reviewable and reproducible. Lint, tests and a database migration check run on every change before it can deploy.</p>
+    </div>
+  </section>
+
+  <section id="dataflow">
+    <h2><span class="num">03</span> Data flow</h2>
+    <div class="prose">
+      <p>A submission moves through seven stages — Submitted, Under Review, Updates Required, Awaiting Approval, Approved, Ready to Publish, Published. Each transition is checked against the user's role, written to the audit trail, and triggers an email to whoever owns the next action.</p>
+      <p>Data enters in one place, through the intake form. It leaves in two: notification email to Amentum mailboxes, and an export package the publishing team downloads when content is approved for publication.</p>
+    </div>
+
+    <h3>Data inventory</h3>
+    <div class="t-scroll">
+      <table>
+        <thead><tr><th scope="col">Data category</th><th scope="col">Contents</th><th scope="col">Classification</th><th scope="col">Retention</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>Offering content</td>
+            <td>Customer challenge, technical description, benefits, opportunity and contract values</td>
+            <td><b>Confidential</b></td>
+            <td>Life of the record</td>
+          </tr>
+          <tr>
+            <td>Contact details</td>
+            <td>Name, work email address and optional work telephone number of owners and reviewers</td>
+            <td><b>Internal</b><br>(personal data)</td>
+            <td>Life of the record</td>
+          </tr>
+          <tr>
+            <td>Uploaded attachments</td>
+            <td>Supporting documents provided by submitters. Limited to 10 files per submission, 25 MB each, permitted file types only.</td>
+            <td><b>Confidential</b><br>(assumed)</td>
+            <td>Life of the record; deleted files recoverable for 30 days</td>
+          </tr>
+          <tr>
+            <td>Audit records</td>
+            <td>Actor, action, timestamp and source IP address for every sign-in and workflow transition</td>
+            <td><b>Internal</b></td>
+            <td>Life of the record</td>
+          </tr>
+          <tr>
+            <td>Notification log</td>
+            <td>Record of each email sent, including recipient address and delivery status</td>
+            <td><b>Internal</b></td>
+            <td>12 months</td>
+          </tr>
+          <tr>
+            <td>Sign-in tokens</td>
+            <td>SHA-256 hash of a one-time link. The link itself is never stored.</td>
+            <td><b>Restricted</b></td>
+            <td>15 minutes, then deleted</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="font-size:13.5px;color:var(--slate);margin-top:12px;max-width:74ch;">Classified against the standard four-tier scheme (Public, Internal, Confidential, Restricted). Please confirm the equivalent tiers in Amentum's own data classification policy and we will adopt that terminology.</p>
+
+    <div class="note warn">
+      <p class="h">Proposed usage boundary</p>
+      <p>SolutionsHub is intended for internal business and marketing content. We propose it is <b>not</b> approved for classified, export-controlled (ITAR/EAR) or personal-sensitive material, and that this is stated to users at the point of upload. We would welcome your wording.</p>
+      <p>The only personal data held is business contact information for Amentum employees, processed on legitimate interest for internal business administration. There is no special-category data and no customer personal data.</p>
+    </div>
+  </section>
+
+  <section id="auth">
+    <h2><span class="num">04</span> Why not corporate SSO</h2>
+    <div class="prose">
+      <p>The intended users sit across two unconnected domains, so no single Entra ID tenant contains all of them. Federating the two is a much larger piece of work than this application justifies.</p>
+      <p>What both populations do share is an Amentum mailbox. The service therefore treats <b>control of an Amentum mailbox</b> as the proof of identity, which is the same assumption behind every corporate password-reset flow. If SSO becomes available across both domains, it can replace this mechanism without changing anything else in the design.</p>
+    </div>
+  </section>
+
+  <section id="magiclink">
+    <h2><span class="num">05</span> How sign-in works</h2>
+    <div class="prose">
+      <p>There is no password. A user enters their work email, receives a one-time link, and confirms on the page that link opens.</p>
+    </div>
+
+    <figure>
+      <div class="fig-frame">
+        <svg viewBox="0 0 910 400" role="img" aria-label="Sequence: the browser sends the work email to SolutionsHub, which stores a hashed token in the database and emails a one-time link to the Amentum mailbox. The user opens the link, confirms with a POST, and SolutionsHub marks the token used and sets a session cookie.">
+          <defs>
+            <marker id="ah2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor"></path>
+            </marker>
+          </defs>
+
+          <rect class="svg-box-alt" x="35" y="14" width="150" height="42" rx="3"></rect>
+          <text class="svg-t" x="110" y="41" text-anchor="middle">Browser</text>
+          <rect class="svg-box" x="265" y="14" width="150" height="42" rx="3"></rect>
+          <text class="svg-t" x="340" y="41" text-anchor="middle">SolutionsHub</text>
+          <rect class="svg-box" x="495" y="14" width="150" height="42" rx="3"></rect>
+          <text class="svg-t" x="570" y="41" text-anchor="middle">Database</text>
+          <rect class="svg-box-alt" x="725" y="14" width="150" height="42" rx="3"></rect>
+          <text class="svg-t" x="800" y="41" text-anchor="middle">Amentum mailbox</text>
+
+          <line class="lifeline" x1="110" y1="56" x2="110" y2="378"></line>
+          <line class="lifeline" x1="340" y1="56" x2="340" y2="378"></line>
+          <line class="lifeline" x1="570" y1="56" x2="570" y2="378"></line>
+          <line class="lifeline" x1="800" y1="56" x2="800" y2="378"></line>
+
+          <text class="svg-l" x="225" y="94" text-anchor="middle">1 · enters work email</text>
+          <line class="svg-line" x1="110" y1="104" x2="334" y2="104" marker-end="url(#ah2)"></line>
+
+          <text class="svg-l" x="455" y="146" text-anchor="middle">2 · store hashed token</text>
+          <line class="svg-line" x1="340" y1="156" x2="564" y2="156" marker-end="url(#ah2)"></line>
+
+          <text class="svg-l" x="570" y="198" text-anchor="middle">3 · email a one-time link</text>
+          <line class="svg-line" x1="340" y1="208" x2="794" y2="208" marker-end="url(#ah2)"></line>
+
+          <text class="svg-l" x="455" y="250" text-anchor="middle">4 · user opens the link</text>
+          <line class="svg-line" x1="800" y1="260" x2="116" y2="260" marker-end="url(#ah2)"></line>
+
+          <text class="svg-l" x="225" y="302" text-anchor="middle">5 · confirms (POST + CSRF)</text>
+          <line class="svg-line" x1="110" y1="312" x2="334" y2="312" marker-end="url(#ah2)"></line>
+
+          <text class="svg-l" x="225" y="354" text-anchor="middle">6 · token used · session cookie</text>
+          <line class="svg-line" x1="340" y1="364" x2="116" y2="364" marker-end="url(#ah2)"></line>
+        </svg>
+      </div>
+      <figcaption>Step 5 is deliberate. The link does not sign anyone in when it is merely fetched — it requires a form submission on the page it opens, so corporate link scanners that pre-fetch URLs cannot consume a user's token before they reach it.</figcaption>
+    </figure>
+
+    <h3>Controls at each stage</h3>
+    <div class="t-scroll">
+      <table>
+        <thead><tr><th scope="col">Control</th><th scope="col">Setting</th></tr></thead>
+        <tbody>
+          <tr><td>Accepted senders</td><td>Three Amentum domains only. Any other address receives an identical response and no email, so the form cannot be used to discover valid addresses.</td></tr>
+          <tr><td>Token strength</td><td>32 bytes from the operating system's cryptographic random source.</td></tr>
+          <tr><td>Token at rest</td><td>Only a SHA-256 hash is stored. A database compromise yields no usable links.</td></tr>
+          <tr><td>Token lifetime</td><td><span class="mono">15 minutes</span>, single use, invalidated when a newer link is requested.</td></tr>
+          <tr><td>Request throttling</td><td><span class="mono">5</span> link requests per address per hour, <span class="mono">30</span> per source network, <span class="mono">10</span> failed confirmations per network.</td></tr>
+          <tr><td>Session cookie</td><td>Signed, <span class="mono">HttpOnly</span>, <span class="mono">Secure</span>, <span class="mono">SameSite=Lax</span>. Server-side record so it can be revoked.</td></tr>
+          <tr><td>Session lifetime</td><td><span class="mono">8 hours</span> sliding, <span class="mono">24 hours</span> absolute. Optional 30-day trusted device.</td></tr>
+          <tr><td>Revocation</td><td>Disabling a user kills all their sessions immediately and blocks new links.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Why the endpoint is public</h3>
+    <div class="prose">
+      <p>Users on two unconnected domains, working from offices, home and client sites, cannot reliably share a single network path. Rather than depend on network location, the design places the control at identity.</p>
+      <p>Only four things are reachable without a session: the sign-in form, the link confirmation page, a health check that returns nothing but <span class="mono">ok</span>, and static CSS and images. Every other URL redirects to sign-in. An attacker who reaches the site without an Amentum mailbox can do exactly one thing — cause a sign-in email to be sent to an Amentum address, which is rate limited as above.</p>
+      <p>If you would prefer defence in depth, IP restrictions or Azure Front Door with WAF can be layered on top without any application change. We are happy to be directed here.</p>
+    </div>
+  </section>
+
+  <section id="rbac">
+    <h2><span class="num">06</span> Who can do what</h2>
+    <div class="prose">
+      <p>Signing in proves identity; it grants no privilege beyond submitting an offering and viewing approved content. Roles are held in the application and assigned by an administrator. Every check runs server-side on every request.</p>
+    </div>
+    <div class="t-scroll">
+      <table>
+        <thead><tr><th scope="col">Role</th><th scope="col">Can do</th><th scope="col">Assigned by</th></tr></thead>
+        <tbody>
+          <tr><td class="svc">Signed-in user</td><td>Submit an offering, browse approved content, edit their own submission before review.</td><td>Automatic on first sign-in</td></tr>
+          <tr><td class="svc">Reviewer</td><td>Validate submissions and request changes, optionally scoped to one business group.</td><td>Administrator</td></tr>
+          <tr><td class="svc">Approver</td><td>Approve or reject. Cannot approve an offering they own.</td><td>Administrator</td></tr>
+          <tr><td class="svc">Publisher</td><td>Prepare approved content and record publication.</td><td>Administrator</td></tr>
+          <tr><td class="svc">Administrator</td><td>Manage roles and reference data, disable users, read the audit log.</td><td>Existing administrator</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <ul class="tick">
+      <li><b>Separation of duties</b> — nobody can approve their own offering, administrators included.</li>
+      <li><b>No self-elevation</b> — a user cannot grant themselves a role; both parties are named in the audit record.</li>
+      <li><b>First administrator</b> is set by configuration and only applies while no administrator exists.</li>
+    </ul>
+  </section>
+
+  <section id="controls">
+    <h2><span class="num">07</span> Security controls</h2>
+    <div class="t-scroll">
+      <table>
+        <thead><tr><th scope="col">Area</th><th scope="col">Control</th></tr></thead>
+        <tbody>
+          <tr><td>Transport</td><td>HTTPS enforced end to end, TLS 1.2 minimum, HSTS. TLS required on the database connection.</td></tr>
+          <tr><td>At rest</td><td>Azure platform encryption on database and file storage.</td></tr>
+          <tr><td>Browser hardening</td><td>Content Security Policy restricted to same-origin, <span class="mono">X-Frame-Options: DENY</span>, <span class="mono">nosniff</span>, Referrer and Permissions policies. No third-party scripts, trackers or fonts served to users.</td></tr>
+          <tr><td>Injection</td><td>Parameterised queries throughout an ORM; templates escape output by default.</td></tr>
+          <tr><td>Forgery</td><td>CSRF token on every state-changing request, plus <span class="mono">SameSite</span> cookies.</td></tr>
+          <tr><td>Uploads</td><td>Extension allowlist, size and count limits, sanitised filenames, stored under generated paths, always served as attachments and never executed or rendered inline.</td></tr>
+          <tr><td>Audit</td><td>Append-only record of sign-ins, transitions, approvals, role changes and exports, with actor, timestamp and IP. Exportable as CSV.</td></tr>
+          <tr><td>Backup</td><td>Database point-in-time restore 7 days; file soft delete 30 days with versioning.</td></tr>
+          <tr><td>Supply chain</td><td>Pinned dependencies, automated dependency scanning, all changes reviewed in GitHub before deployment.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="risks">
+    <h2><span class="num">08</span> Known gaps and decisions taken</h2>
+    <div class="prose">
+      <p>Stated plainly so you are not asked to discover them. The first three are consequences of the current development-phase permissions and are already scheduled.</p>
+    </div>
+    <div class="t-scroll">
+      <table>
+        <thead><tr><th scope="col">Item</th><th scope="col">Position</th><th scope="col">Status</th></tr></thead>
+        <tbody>
+          <tr>
+            <td class="svc">Secrets in configuration</td>
+            <td>Service credentials sit in App Service configuration, encrypted at rest and visible only to those with write access to the app. Azure Key Vault was not used because creating the role assignments it needs requires permissions the project does not yet hold.</td>
+            <td><span class="pill plan">Planned</span></td>
+          </tr>
+          <tr>
+            <td class="svc">Service-to-service authentication</td>
+            <td>Components authenticate with keys and connection strings rather than managed identity, for the same permissions reason. No credential is in source control.</td>
+            <td><span class="pill plan">Planned</span></td>
+          </tr>
+          <tr>
+            <td class="svc">Sender domain</td>
+            <td>Email currently sends from an Azure-managed domain. A verified Amentum subdomain with SPF, DKIM and DMARC is required before pilot, both for deliverability and so recipients can see the mail is genuinely ours.</td>
+            <td><span class="pill plan">Before pilot</span></td>
+          </tr>
+          <tr>
+            <td class="svc">Database network exposure</td>
+            <td>The database accepts connections from Azure services and enforces TLS with a generated credential. Restricting to the application's outbound addresses, or private networking, is the hardening step.</td>
+            <td><span class="pill plan">Planned</span></td>
+          </tr>
+          <tr>
+            <td class="svc">Public endpoint</td>
+            <td>A deliberate decision, reasoned in §05. Reversible without application changes.</td>
+            <td><span class="pill">Decision</span></td>
+          </tr>
+          <tr>
+            <td class="svc">Email as identity proof</td>
+            <td>A deliberate decision, reasoned in §04. Anyone controlling an Amentum mailbox can sign in — the same assumption as corporate password reset.</td>
+            <td><span class="pill">Decision</span></td>
+          </tr>
+          <tr>
+            <td class="svc">No high availability</td>
+            <td>Single instance, single region. This is an internal productivity tool, not a service with an availability commitment.</td>
+            <td><span class="pill">Accepted</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="ask">
+    <h2><span class="num">09</span> What we need from you</h2>
+    <ul class="tick">
+      <li>Agreement on the two design decisions in §05 and §04 — the public endpoint and email-based identity — or direction to change them.</li>
+      <li>Confirmation of the usage boundary in §03, and your preferred wording to show users at upload.</li>
+      <li>A DNS record change to create a verified sending subdomain, so notification email is demonstrably from Amentum. We can supply the exact records; no change to any existing domain is required.</li>
+      <li>Any additional logging, retention or review requirements you need before pilot.</li>
+    </ul>
+    <div class="note">
+      <p>Happy to walk through the code, the infrastructure definition or a live demonstration at whatever depth is useful. A three-minute recorded walkthrough of the full submit-to-publish journey is available on request.</p>
+    </div>
+  </section>
+
+  <footer>
+    <span>SolutionsHub · security overview v1.0 · 10 September 2026</span>
+    <span>Amentum internal — not for external distribution</span>
+  </footer>
+
+</div>
