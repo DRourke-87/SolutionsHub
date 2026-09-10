@@ -209,7 +209,7 @@
     <div class="prose">
       <p class="lead">SolutionsHub replaces a Microsoft Form plus manual email chasing with a single tracked process, from submission through review, approval and publication.</p>
       <p>It is built entirely from Azure platform services in one resource group, and holds internal business content about Amentum offerings plus the work contact details of the people who own them. It stores no passwords and processes no payment data.</p>
-      <p>Two design decisions need your explicit agreement, and both are set out in full below: the application is reachable from the public internet with access controlled by identity rather than network location (§05), and it authenticates people by emailing a one-time link to an Amentum mailbox rather than through corporate SSO (§05), because its users sit across two unconnected domains.</p>
+      <p>Two design decisions need your explicit agreement, and both are set out in full below: the application is reachable from the public internet with access controlled by identity rather than network location (#05), and it authenticates people by emailing a one-time link to an Amentum mailbox rather than through corporate SSO (#05), because its users sit across two unconnected domains.</p>
     </div>
 
     <h3>Quick answers</h3>
@@ -295,7 +295,7 @@
           <text class="svg-accent-t" x="505" y="438" text-anchor="middle">user opens the one-time link in their browser</text>
         </svg>
       </div>
-      <figcaption>Every inbound connection is a browser reaching the App Service over HTTPS. The four backing services are reachable only by the application, never directly by a user. The green path is the authentication loop: the sign-in link travels out by email and returns through the user's own browser — the mechanism described in §05.</figcaption>
+      <figcaption>Every inbound connection is a browser reaching the App Service over HTTPS. The four backing services are reachable only by the application, never directly by a user. The green path is the authentication loop: the sign-in link travels out by email and returns through the user's own browser — the mechanism described in #05.</figcaption>
     </figure>
 
     <div class="t-scroll">
@@ -556,12 +556,12 @@
           </tr>
           <tr>
             <td class="svc">Public endpoint</td>
-            <td>A deliberate decision, reasoned in §05. Reversible without application changes.</td>
+            <td>A deliberate decision, reasoned in #05. Reversible without application changes.</td>
             <td><span class="pill">Decision</span></td>
           </tr>
           <tr>
             <td class="svc">Email as identity proof</td>
-            <td>A deliberate decision, reasoned in §04. Anyone controlling an Amentum mailbox can sign in — the same assumption as corporate password reset.</td>
+            <td>A deliberate decision, reasoned in #04. Anyone controlling an Amentum mailbox can sign in — the same assumption as corporate password reset.</td>
             <td><span class="pill">Decision</span></td>
           </tr>
           <tr>
@@ -577,8 +577,8 @@
   <section id="ask">
     <h2><span class="num">09</span> What we need from you</h2>
     <ul class="tick">
-      <li>Agreement on the two design decisions in §05 and §04 — the public endpoint and email-based identity — or direction to change them.</li>
-      <li>Confirmation of the usage boundary in §03, and your preferred wording to show users at upload.</li>
+      <li>Agreement on the two design decisions in #05 and #04 — the public endpoint and email-based identity — or direction to change them.</li>
+      <li>Confirmation of the usage boundary in #03, and your preferred wording to show users at upload.</li>
       <li>A DNS record change to create a verified sending subdomain, so notification email is demonstrably from Amentum. We can supply the exact records; no change to any existing domain is required.</li>
       <li>Any additional logging, retention or review requirements you need before pilot.</li>
     </ul>
