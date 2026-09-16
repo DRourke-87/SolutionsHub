@@ -25,6 +25,7 @@ an offering page, the intake form, and the reviewer → approver → publisher r
 | [04 – Authentication & Access](docs/04-auth-and-access.md) | Public endpoint rationale, magic-link email sign-in, sessions, rate limiting, role administration, threat notes |
 | [05 – Deployment & Operations](docs/05-deployment.md) | Local development, Azure setup, infra and app deployment, first sign-in, email deliverability, operations, troubleshooting |
 | [06 – Approval Flow at a Glance](docs/06-approval-flow.md) | One-page flow diagram of the approval process, who acts at each step, how many reviewers/approvers/publishers are needed, and a worksheet for assigning them |
+| [Approval Flow (PDF)](docs/SolutionsHub-Approval-Flow.pdf) | The approval route and role assignment, typeset in Amentum styling for circulation. [HTML source](docs/SolutionsHub-Approval-Flow.html) regenerates the PDF. |
 | [Security Overview (PDF)](docs/SolutionsHub-Security-Overview.pdf) | Architecture, data flow and magic-link authentication, written for IT and Cyber approval. [HTML source](docs/SolutionsHub-Security-Overview.html) regenerates the PDF. |
 
 ## Headline design
