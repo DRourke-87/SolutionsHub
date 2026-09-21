@@ -7,66 +7,100 @@ from sqlalchemy.orm import Session
 
 from app.models import BusinessGroup, Capability, CapabilityArea, PublishDestination
 
+# The capability areas and offerings published on amentum.com. "Other" is its own area so that it
+# sorts last in the form (question 11) rather than sitting under Data Analytics and Cyber Solutions.
 CAPABILITY_TAXONOMY: list[tuple[str, list[tuple[str, str]]]] = [
     (
         "Mission Modernization & Sustainment",
         [
-            ("mms_logistics", "Logistics and Supply Chain"),
-            ("mms_systems_eng", "Systems Engineering & Sustainment"),
-            ("mms_test_training", "Advanced Test and Training"),
-            ("mms_rdte", "RDT&E"),
-            ("mms_intel_infra", "Intelligence Infrastructure"),
+            ("mms_rdte", "Research Development, Test and Evaluation"),
+            ("mms_c5isr", "C5ISR Systems Engineering & Sustainment"),
+            ("mms_uas", "UAS Engineering & Sustainment"),
+            ("mms_aviation", "Aviation Engineering & Sustainment"),
+            ("mms_land_vehicles", "Land Vehicles & Equipment Sustainment"),
+            ("mms_naval_eng", "Naval Engineering & Sustainment"),
+            ("mms_naval_deterrent", "Naval Deterrent Sustainment"),
+            ("mms_test_training", "Advanced Test, Training, & Aerial Systems"),
+            ("mms_logistics", "Global Logistics & Supply Chain Management"),
+            ("mms_intel_infra", "Intelligence Infrastructure Solutions"),
+            ("mms_nuclear_security", "Nuclear Security and Deterrence"),
+            ("mms_medical_disaster", "Medical and Disaster Response"),
         ],
     ),
     (
         "Space Systems",
         [
             ("space_ground", "Ground Systems"),
-            ("space_ports", "Space Ports"),
-            ("space_orbital", "Orbital Operations"),
+            ("space_ports", "Spaceports"),
+            ("space_hardware", "Spaceflight Hardware"),
+            ("space_orbital", "Orbit Operations"),
+            ("space_exploration", "Exploration Science"),
+            ("space_payloads", "Satellite Payloads"),
         ],
     ),
     (
         "Digital Transformation",
         [
-            ("dt_software", "Software Development"),
-            ("dt_critical_infra", "Critical Digital Infrastructure"),
+            ("dt_software", "Software Development & Engineering"),
+            ("dt_information_analytics", "Information Analytics"),
+            ("dt_critical_infra", "Critical Infrastructure and Advanced Networks"),
+            ("dt_it_cyber", "Cybersecurity"),
             ("dt_digital_eng", "Digital Engineering"),
-            ("dt_enterprise_it", "Enterprise IT"),
-            ("dt_it_cyber", "IT Cybersecurity"),
             ("dt_cloud", "Cloud"),
+            ("dt_agile", "Agile Delivery Process"),
         ],
     ),
     (
         "Sustainability & Environment",
         [
             ("se_remediation", "Environmental Remediation & Decommissioning"),
+            ("se_site_assessment", "Site Assessment & Characterization"),
             ("se_consulting", "Environmental Consulting"),
-            ("se_regulatory", "Regulatory Compliance, Permitting, Licensing"),
+            ("se_risk_assessment", "Environmental Risk Assessment"),
+            ("se_regulatory", "Environmental Regulatory Compliance, Permitting and Licensing"),
+            ("se_pfas", "Eradication of Emerging Contaminants (PFAS)"),
+            ("se_restoration", "Environmental Site Restoration and Reuse"),
+            ("se_radwaste", "Radioactive Waste Management and Radiation Protection"),
         ],
     ),
     (
-        "Advanced Energy",
+        "Advanced Energy Solutions",
         [
-            ("ae_nuclear_eng", "Nuclear Engineering & Design"),
-            ("ae_regulatory", "Regulatory, Site Licensing & Permitting"),
+            ("ae_renewable", "Renewable Energy Solutions"),
             ("ae_consulting", "Energy Consulting"),
-            ("ae_research", "Research, Lab and Test Bed Operations"),
-            ("ae_lifecycle", "Nuclear Energy Lifecycle"),
+            ("ae_nuclear_eng", "Nuclear Engineering & Design"),
+            ("ae_commissioning", "Commissioning, Operational Support and Life Extension"),
+            ("ae_regulatory", "Regulatory, Site Licensing and Permitting"),
+            ("ae_research", "Research, Laboratory and Energy Test Bed Operations"),
         ],
     ),
     (
-        "Data Analytics and Cyber",
+        "Data Analytics and Cyber Solutions",
         [
-            ("dac_ai_intel", "AI-source Intelligence Collection & Analytics"),
-            ("dac_cyber_monitoring", "Cyber Monitoring & Threat Analytics"),
-            ("dac_cyber_training", "Cyber Training"),
-            ("dac_cyber_ops", "Offensive/Defensive Cyber Operations"),
-            ("dac_im_comms", "Advanced IM/Communications"),
+            ("dac_ai_intel", "All-Source Intelligence Collection & Analytics"),
+            ("dac_counter_intel", "Counter Intelligence Solutions"),
+            ("dac_cyber_monitoring", "Continuous Cyber Monitoring & Threat Analytics"),
+            ("dac_cyber_ops", "Offensive / Defensive Cyber Operations"),
+            ("dac_cyber_training", "Full-spectrum Cyber Training"),
+            ("dac_im_comms", "Advanced Communication Solutions"),
+            ("dac_managed_bandwidth", "Managed Bandwidth & Secure Network Solutions"),
+            ("dac_biometrics", "Integrated Biometrics"),
+            ("dac_business_analytics", "Business Process Analytics"),
+        ],
+    ),
+    (
+        "Other",
+        [
             ("other", "Other (please specify)"),
         ],
     ),
 ]
+
+# Areas renamed in place so that existing submissions keep their classification.
+AREA_RENAMES = {
+    "Advanced Energy": "Advanced Energy Solutions",
+    "Data Analytics and Cyber": "Data Analytics and Cyber Solutions",
+}
 
 # Placeholder list: the business will supply the definitive Business Groups. Editable in Admin.
 DEFAULT_BUSINESS_GROUPS = [
@@ -82,8 +116,16 @@ DEFAULT_PUBLISH_DESTINATIONS = [
 
 
 def seed_reference_data(db: Session) -> dict[str, int]:
-    created = {"areas": 0, "capabilities": 0, "business_groups": 0, "destinations": 0}
+    created = {"areas": 0, "capabilities": 0, "business_groups": 0, "destinations": 0, "retired": 0}
 
+    for old_name, new_name in AREA_RENAMES.items():
+        area = db.execute(select(CapabilityArea).where(CapabilityArea.name == old_name)).scalar_one_or_none()
+        target = db.execute(select(CapabilityArea).where(CapabilityArea.name == new_name)).scalar_one_or_none()
+        if area is not None and target is None:
+            area.name = new_name
+    db.flush()
+
+    current_codes: set[str] = set()
     for a_idx, (area_name, caps) in enumerate(CAPABILITY_TAXONOMY):
         area = db.execute(select(CapabilityArea).where(CapabilityArea.name == area_name)).scalar_one_or_none()
         if area is None:
@@ -91,11 +133,27 @@ def seed_reference_data(db: Session) -> dict[str, int]:
             db.add(area)
             db.flush()
             created["areas"] += 1
+        else:
+            area.sort_order = a_idx
         for c_idx, (code, name) in enumerate(caps):
+            current_codes.add(code)
             cap = db.execute(select(Capability).where(Capability.code == code)).scalar_one_or_none()
             if cap is None:
                 db.add(Capability(area_id=area.id, code=code, name=name, sort_order=c_idx))
                 created["capabilities"] += 1
+            else:
+                # Keep the row (submissions reference it) but bring its wording and placement up to date.
+                cap.area_id = area.id
+                cap.name = name
+                cap.sort_order = c_idx
+                cap.is_active = True
+
+    # Capabilities dropped from the taxonomy are hidden rather than deleted: historic submissions still
+    # point at them, and the admin reference page can bring one back if it is needed again.
+    for cap in db.execute(select(Capability).where(Capability.code.notin_(current_codes))).scalars():
+        if cap.is_active:
+            cap.is_active = False
+            created["retired"] += 1
 
     existing_groups = {g.name for g in db.execute(select(BusinessGroup)).scalars()}
     if not existing_groups:

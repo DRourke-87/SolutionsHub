@@ -7,7 +7,7 @@ import json
 import zipfile
 from datetime import datetime
 
-from app.enums import DEPLOYMENT_LABELS, READINESS_LABELS, DeploymentStatus, ReadinessLevel
+from app.enums import READINESS_LABELS, ReadinessLevel
 from app.models import Submission
 from app.services.storage import get_storage
 
@@ -27,14 +27,17 @@ def snapshot(sub: Submission) -> dict:
         "cto_aware": sub.cto_aware,
         "customer_challenge": sub.customer_challenge,
         "technical_description": sub.technical_description,
-        "key_benefits": sub.key_benefits,
+        "key_differentiators": sub.key_differentiators,
         "readiness_level": sub.readiness_level,
         "readiness_programs": sub.readiness_programs,
-        "deployment_status": sub.deployment_status,
-        "deployment_detail": sub.deployment_detail,
-        "additional_customers": sub.additional_customers,
+        "on_proposal": sub.on_proposal,
         "current_pipeline": sub.current_pipeline,
+        "additional_customers": sub.additional_customers,
         "resource_links_notes": sub.resource_links_notes,
+        "relevant_partnerships": sub.relevant_partnerships,
+        "partnership_url": sub.partnership_url,
+        "sensitive_data_ack_at": _fmt(sub.sensitive_data_ack_at),
+        "sensitive_data_ack_by_email": sub.sensitive_data_ack_by_email,
         "contacts": [
             {"role": c.contact_role, "name": c.name, "email": c.email, "phone": c.phone} for c in sub.contacts
         ],
@@ -66,7 +69,7 @@ def snapshot(sub: Submission) -> dict:
 def offering_markdown(sub: Submission) -> str:
     snap = snapshot(sub)
     readiness = READINESS_LABELS.get(ReadinessLevel(sub.readiness_level), "") if sub.readiness_level else ""
-    deployment = DEPLOYMENT_LABELS.get(DeploymentStatus(sub.deployment_status), "") if sub.deployment_status else ""
+    on_proposal = "" if sub.on_proposal is None else ("Yes" if sub.on_proposal else "No")
     lines = [
         f"# {sub.offering_name}",
         "",
@@ -90,24 +93,26 @@ def offering_markdown(sub: Submission) -> str:
         "",
         sub.technical_description,
         "",
-        "## Key customer benefits",
+        "## Key differentiators",
         "",
-        sub.key_benefits,
+        sub.key_differentiators,
         "",
         "## Readiness and deployment",
         "",
-        f"- **Level of readiness:** {readiness}",
+        f"- **Level of readiness achieved:** {readiness}",
         f"- **Programs / clients:** {sub.readiness_programs}",
-        f"- **Deployed or proposed:** {deployment}",
-        f"- **Detail:** {sub.deployment_detail}",
-        f"- **Additional customers:** {sub.additional_customers}",
+        f"- **Currently bid on a proposal:** {on_proposal}",
         f"- **Current pipeline:** {sub.current_pipeline}",
+        f"- **Additional customers:** {sub.additional_customers}",
         "",
         "## Offering owners",
         "",
     ]
     for c in sub.contacts:
         lines.append(f"- {c.role_label}: {c.name} <{c.email}>" + (f" {c.phone}" if c.phone else ""))
+    lines += ["", "## Relevant partnerships", "", sub.relevant_partnerships or "—"]
+    if sub.partnership_url:
+        lines.append(f"- Website: {sub.partnership_url}")
     lines += ["", "## Supporting resources", "", sub.resource_links_notes or "", ""]
     for a in sub.active_attachments:
         lines.append(f"- attachments/{a.original_filename} ({a.size_bytes} bytes)")

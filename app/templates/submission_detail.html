@@ -55,20 +55,22 @@
 
   <section class="card">
     <h2 class="section-title">Market &amp; opportunity analysis</h2>
-    {{ field("Key customer benefit(s)", sub.key_benefits) }}
+    {{ field("Key Differentiators", sub.key_differentiators) }}
     <div class="grid-2">
-      {{ field("Level of readiness", READINESS_LABELS[ReadinessLevel(sub.readiness_level)] if sub.readiness_level else None, False) }}
-      {{ field("Currently deployed or proposed", DEPLOYMENT_LABELS[DeploymentStatus(sub.deployment_status)] if sub.deployment_status else None, False) }}
+      {{ field("Level of readiness achieved", READINESS_LABELS[ReadinessLevel(sub.readiness_level)] if sub.readiness_level else None, False) }}
+      {{ field("Currently bid on a proposal", "Yes" if sub.on_proposal else ("No" if sub.on_proposal == False else None), False) }}
     </div>
     {{ field("Relevant programs or clients", sub.readiness_programs) }}
-    {{ field("Deployment / proposal detail", sub.deployment_detail) }}
-    {{ field("Additional customers", sub.additional_customers) }}
     {{ field("Current pipeline", sub.current_pipeline) }}
+    {{ field("Additional customers", sub.additional_customers) }}
   </section>
 
   <section class="card" id="attachments">
     <h2 class="section-title">Supporting resources</h2>
     {{ field("Links or notes", sub.resource_links_notes) }}
+    {{ field("Relevant partnerships", sub.relevant_partnerships) }}
+    {{ field("Partner website", sub.partnership_url, False) }}
+    <p class="note-sensitive"><strong>No sensitive data in attachments.</strong> {{ SENSITIVE_DATA_ATTACHMENT_NOTE }}</p>
     <div class="field-label">Files ({{ sub.active_attachments|length }}/{{ settings.max_attachments_per_submission }})</div>
     {% if sub.active_attachments %}
     <ul class="attach-list">
@@ -108,7 +110,7 @@
     {% if policy.can_comment(user, sub) %}
     <form method="post" action="/submissions/{{ sub.id }}/comments" class="stack">{{ csrf() }}
       <label for="body">Add a comment</label>
-      <textarea id="body" name="body" rows="3" required placeholder="Ask a question, give feedback, or add context. Owners, co-leads and the reviewer are notified."></textarea>
+      <textarea id="body" name="body" rows="3" required placeholder="Ask a question, give feedback, or add context. The offering owners and the reviewer are notified."></textarea>
       {% if policy.is_staff(user) %}<label class="check"><input type="checkbox" name="is_blocking" value="1"> Blocking – must be resolved before approval</label>{% endif %}
       <button class="btn btn-secondary" type="submit">Post comment</button>
     </form>
@@ -179,6 +181,20 @@
       <dt>Last action</dt><dd>{{ sub.last_action_at|dt }}</dd>
       <dt>Views</dt><dd>{{ view_count }}</dd>
     </dl>
+  </section>
+
+  <section class="card">
+    <h3>Sensitive data confirmation</h3>
+    {% if sub.sensitive_data_acknowledged %}
+    <p class="small">{{ SENSITIVE_DATA_CONFIRMATION }}</p>
+    <dl class="dates">
+      <dt>Confirmed by</dt><dd>{{ sub.sensitive_data_ack_by_email }}</dd>
+      <dt>Confirmed at</dt><dd>{{ sub.sensitive_data_ack_at|dt }}</dd>
+      {% if sub.sensitive_data_ack_ip %}<dt>From</dt><dd>{{ sub.sensitive_data_ack_ip }}</dd>{% endif %}
+    </dl>
+    {% else %}
+    <p class="muted small">Not yet confirmed. The submitter must confirm this before the record can be submitted.</p>
+    {% endif %}
   </section>
 
   {% if sub.versions %}

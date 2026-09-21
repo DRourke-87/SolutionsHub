@@ -14,7 +14,7 @@ an email address by a Site Admin and stored in the application database. A user 
 | Role | Who | How granted |
 |---|---|---|
 | **Submitter** | Anyone who signs in | Implicit. No assignment needed. |
-| **Owner / Co-lead** | People named on a specific submission as Offering Owner, Co-lead, or Solution Architect | Per submission, by the submitter or an Admin. Grants edit rights to that one record. |
+| **Owner** | People named on a specific submission as **Owner - Technical** or **Owner - Operations** (the RACI owner categories) | Per submission, by the submitter or an Admin. Grants edit rights to that one record. |
 | **Reviewer** | Stakeholders who validate content and request changes | Assigned by Admin. Optionally scoped to one or more Business Groups. |
 | **Approver** | People with authority to approve content for publishing | Assigned by Admin. Optionally scoped to one or more Business Groups. |
 | **Publisher** | The publishing team / person who moves approved content to its destination | Assigned by Admin. |
@@ -36,7 +36,7 @@ Design notes:
 Legend: **Y** allowed, **Own** allowed on submissions where the user is recorder/owner/co-lead,
 **Scope** allowed within the user's business-group scope (or all, if unscoped), **–** not allowed.
 
-| Action | Submitter | Owner / Co-lead | Reviewer | Approver | Publisher | Admin |
+| Action | Submitter | Owner | Reviewer | Approver | Publisher | Admin |
 |---|---|---|---|---|---|---|
 | Create a submission | Y | Y | Y | Y | Y | Y |
 | View own submissions | Y | Y | Y | Y | Y | Y |
@@ -103,15 +103,19 @@ stateDiagram-v2
 
 ### 3.1 State definitions and "who owns the next action"
 
+The progress bar on a record shows the five business stages — **Submitted → Under Review → Awaiting Edits
+→ Approved → Published**. The internal states below drive the workflow; *Awaiting Approval* displays as
+Under Review and *Ready to Publish* displays as Approved.
+
 | State | Meaning | Next action owner | Shown to submitter as |
 |---|---|---|---|
 | Draft *(optional)* | Saved, not yet visible to reviewers | Submitter | "Not yet submitted" |
 | **Submitted** | Complete enough to review; visible to reviewers | Reviewer pool for the business group | "Waiting for a reviewer" |
 | **Under Review** | A named reviewer has claimed it | The claiming reviewer | "With *reviewer name*" |
-| **Updates Required** | Reviewer or approver has asked for changes | Recorder / owners | "Action needed from you" |
-| **Awaiting Approval** | Review complete; needs decision | Approver pool for the business group | "Waiting for approval" |
+| **Updates Required** | Reviewer or approver has asked for changes | Recorder / owners | "Awaiting Edits" |
+| **Awaiting Approval** | Review complete; needs decision | Approver pool for the business group | "Under Review" (waiting for approval) |
 | **Approved** | Approved for publishing; snapshot saved | Publisher | "Approved, preparing to publish" |
-| **Ready to Publish** | Publisher has confirmed format and destination | Publisher | "Ready to publish" |
+| **Ready to Publish** | Publisher has confirmed format and destination | Publisher | "Approved" (ready to publish) |
 | **Published** | Live at the recorded destination | Owners (for 6-month review) | "Published" |
 | Rejected | Not proceeding; record retained | Admin (may reopen) | "Not approved" |
 | Withdrawn | Submitter or admin withdrew it | None | "Withdrawn" |
@@ -122,12 +126,12 @@ stateDiagram-v2
 
 | From | To | Actor | Guard (must be true) | Side effects | Notifications |
 |---|---|---|---|---|---|
-| (new) / Draft | Submitted | Submitter | All required fields present; 1–3 capabilities selected; at least one owner contact; at least one attachment or resource link | Assign reference number `SOL-YYYY-NNNN`; `submitted_at` set | Reviewers in scope: "New submission awaiting review". Submitter and owners: confirmation with link. |
+| (new) / Draft | Submitted | Submitter | All required fields present and within their word limits; 1–3 capabilities selected; at least one owner contact; sensitive-data confirmation ticked (attachments and resource links are optional) | Assign reference number `SOL-YYYY-NNNN`; `submitted_at` set | Reviewers in scope: "New submission awaiting review". Submitter and owners: confirmation with link. |
 | Submitted | Under Review | Reviewer | Reviewer in scope for the business group | `assigned_reviewer` set | Submitter and owners: "Your submission is under review by …" |
 | Under Review | Updates Required | Reviewer | A comment with the requested changes is entered | `waiting_on` = owners; reminder clock starts | Submitter and owners: "Updates required" with the comment text |
 | Updates Required | Under Review | Submitter / Owner | Fields re-validated as for Submitted | Increment `revision` | Assigned reviewer: "Resubmitted" |
-| Under Review | Awaiting Approval | Reviewer | Completeness check passes (all required fields, attachments/links, capabilities 1–3); no unresolved "blocking" comments | `review_completed_at` set | Approvers in scope: "Awaiting your approval". Submitter and owners: "Review complete" |
-| Awaiting Approval | Approved | Approver | Approver is not recorder/owner/co-lead of this record | Write approval event; save immutable snapshot to `submission_versions`; `approved_version` set | Publishers: "Approved and ready for publishing prep". Submitter and owners: "Approved" |
+| Under Review | Awaiting Approval | Reviewer | Completeness check passes (all required fields, capabilities 1–3, sensitive-data confirmation); no unresolved "blocking" comments | `review_completed_at` set | Approvers in scope: "Awaiting your approval". Submitter and owners: "Review complete" |
+| Awaiting Approval | Approved | Approver | Approver is not the recorder or a named owner of this record | Write approval event; save immutable snapshot to `submission_versions`; `approved_version` set | Publishers: "Approved and ready for publishing prep". Submitter and owners: "Approved" |
 | Awaiting Approval | Updates Required | Approver | Comment entered | As above for Updates Required | Submitter and owners: "Approver requested changes" |
 | Awaiting Approval | Rejected | Approver | Reason entered | Write rejection event | Submitter and owners: "Not approved" with reason. Reviewer informed. |
 | Approved | Ready to Publish | Publisher | Destination selected; export package generated and reviewed | `publish_destination` set | Submitter and owners: "Preparing to publish" |
@@ -162,7 +166,7 @@ been outstanding beyond a threshold:
 
 | Waiting on | Threshold | Reminder recipient | Escalation |
 |---|---|---|---|
-| Owners (Updates Required) | 5 business days, then every 5 | Recorder and owners | After 3 reminders, copy the assigned reviewer; after 6, Admin may withdraw |
+| Owners (Awaiting Edits) | 5 business days, then every 5 | Recorder and owners | After 3 reminders, copy the assigned reviewer; after 6, Admin may withdraw |
 | Reviewer pool (Submitted, unclaimed) | 3 business days, then every 3 | Reviewers in scope | After 2 reminders, copy Admins |
 | Assigned reviewer (Under Review) | 5 business days, then every 5 | The reviewer | After 2 reminders, copy Admins |
 | Approver pool (Awaiting Approval) | 5 business days, then every 5 | Approvers in scope | After 2 reminders, copy Admins |

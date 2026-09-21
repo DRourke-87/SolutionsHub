@@ -13,7 +13,7 @@ def _user(email: str, *roles: Role, bg: int | None = None) -> User:
 
 def _sub(status: Status, owner: str = "owner@amentum.com", bg: int = 1) -> Submission:
     s = Submission(offering_name="X", created_by_email=owner, status=status.value, business_group_id=bg)
-    s.contacts = [SubmissionContact(contact_role=ContactRole.OWNER.value, name="O", email=owner)]
+    s.contacts = [SubmissionContact(contact_role=ContactRole.OWNER_TECHNICAL.value, name="O", email=owner)]
     return s
 
 

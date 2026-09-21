@@ -11,17 +11,26 @@ from fastapi.templating import Jinja2Templates
 
 from app import policy
 from app.config import get_settings
+from app.content import (
+    SENSITIVE_DATA_ATTACHMENT_NOTE,
+    SENSITIVE_DATA_CONFIRMATION,
+    SENSITIVE_DATA_DISCLAIMER,
+    SENSITIVE_DATA_SHORT,
+    WORD_LIMITS,
+)
 from app.enums import (
     CONTACT_ROLE_LABELS,
-    DEPLOYMENT_LABELS,
+    DISPLAY_STAGES,
     PIPELINE_STAGES,
     READINESS_LABELS,
+    SELECTABLE_CONTACT_ROLES,
+    STAGE_LABELS,
     STATUS_LABELS,
     ContactRole,
-    DeploymentStatus,
     ReadinessLevel,
     Role,
     Status,
+    stage_for,
 )
 from app.security import ANON_COOKIE, csrf_identity, csrf_token_for, sign_value, unsign_value
 from app.workflow import waiting_on
@@ -49,6 +58,14 @@ def _status_label(value: str | None) -> str:
         return str(value or "")
 
 
+def _contact_role_label(value: str | None) -> str:
+    """Label for a contact role, including roles retired since an old snapshot was taken."""
+    try:
+        return CONTACT_ROLE_LABELS[ContactRole(value)]
+    except ValueError:
+        return str(value or "").replace("_", " ").title()
+
+
 def _human_size(n: int | None) -> str:
     n = n or 0
     for unit in ("B", "KB", "MB", "GB"):
@@ -58,14 +75,20 @@ def _human_size(n: int | None) -> str:
     return f"{n:.1f} TB"
 
 
-templates.env.filters.update(dt=_fmt_dt, date=_fmt_date, status_label=_status_label, filesize=_human_size)
+templates.env.filters.update(
+    dt=_fmt_dt,
+    date=_fmt_date,
+    status_label=_status_label,
+    filesize=_human_size,
+    contact_role_label=_contact_role_label,
+)
 AREA_ICONS = {
     "Mission Modernization & Sustainment": "/static/img/areas/mission-modernization.svg",
     "Space Systems": "/static/img/areas/space-systems.svg",
     "Digital Transformation": "/static/img/areas/digital-transformation.svg",
     "Sustainability & Environment": "/static/img/areas/sustainability-environment.svg",
-    "Advanced Energy": "/static/img/areas/advanced-energy.svg",
-    "Data Analytics and Cyber": "/static/img/areas/data-analytics-cyber.svg",
+    "Advanced Energy Solutions": "/static/img/areas/advanced-energy.svg",
+    "Data Analytics and Cyber Solutions": "/static/img/areas/data-analytics-cyber.svg",
 }
 
 
@@ -84,12 +107,19 @@ templates.env.globals.update(
     Role=Role,
     ContactRole=ContactRole,
     ReadinessLevel=ReadinessLevel,
-    DeploymentStatus=DeploymentStatus,
     STATUS_LABELS=STATUS_LABELS,
     READINESS_LABELS=READINESS_LABELS,
-    DEPLOYMENT_LABELS=DEPLOYMENT_LABELS,
     CONTACT_ROLE_LABELS=CONTACT_ROLE_LABELS,
+    SELECTABLE_CONTACT_ROLES=SELECTABLE_CONTACT_ROLES,
     PIPELINE_STAGES=PIPELINE_STAGES,
+    DISPLAY_STAGES=DISPLAY_STAGES,
+    STAGE_LABELS=STAGE_LABELS,
+    stage_for=stage_for,
+    WORD_LIMITS=WORD_LIMITS,
+    SENSITIVE_DATA_SHORT=SENSITIVE_DATA_SHORT,
+    SENSITIVE_DATA_DISCLAIMER=SENSITIVE_DATA_DISCLAIMER,
+    SENSITIVE_DATA_ATTACHMENT_NOTE=SENSITIVE_DATA_ATTACHMENT_NOTE,
+    SENSITIVE_DATA_CONFIRMATION=SENSITIVE_DATA_CONFIRMATION,
     policy=policy,
     waiting_on=waiting_on,
 )

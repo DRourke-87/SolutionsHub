@@ -3,19 +3,21 @@
 {%- endmacro %}
 
 {% macro stepper(sub) -%}
-{% set stages = [Status.SUBMITTED, Status.UNDER_REVIEW, Status.AWAITING_APPROVAL, Status.APPROVED, Status.READY_TO_PUBLISH, Status.PUBLISHED] %}
+{# The five stages the business asked to see; several internal statuses map onto one stage. #}
 {% set current = sub.status_enum %}
-{% set effective = Status.UNDER_REVIEW if current == Status.UPDATES_REQUIRED else current %}
+{% set active = stage_for(current) %}
 {% set ns = namespace(idx=-1) %}
-{% for s in stages %}{% if s == effective %}{% set ns.idx = loop.index0 %}{% endif %}{% endfor %}
+{% for s in DISPLAY_STAGES %}{% if s == active %}{% set ns.idx = loop.index0 %}{% endif %}{% endfor %}
 <ol class="stepper" aria-label="Workflow progress">
-  {% for s in stages %}
+  {% for s in DISPLAY_STAGES %}
   <li class="{% if loop.index0 < ns.idx %}done{% elif loop.index0 == ns.idx %}current{% endif %}">
-    <span class="dot"></span><span class="lbl">{{ STATUS_LABELS[s] }}</span>
+    <span class="dot"></span><span class="lbl">{{ STAGE_LABELS[s] }}</span>
   </li>
   {% endfor %}
 </ol>
-{% if current == Status.UPDATES_REQUIRED %}<p class="stepper-note warn">Updates required before review can continue.</p>
+{% if current == Status.UPDATES_REQUIRED %}<p class="stepper-note warn">Edits are needed before review can continue.</p>
+{% elif current == Status.AWAITING_APPROVAL %}<p class="stepper-note muted">Review complete – with the approvers.</p>
+{% elif current == Status.READY_TO_PUBLISH %}<p class="stepper-note muted">Approved – with the publishing team.</p>
 {% elif current.is_terminal %}<p class="stepper-note muted">{{ current.label }}.</p>{% endif %}
 {%- endmacro %}
 

@@ -39,6 +39,25 @@
     refresh();
   }
 
+  // Word limits: live count under each limited textarea (the server enforces the same limits)
+  var limited = document.querySelectorAll("textarea[data-word-limit]");
+  limited.forEach(function (box) {
+    var limit = parseInt(box.getAttribute("data-word-limit"), 10);
+    if (!limit) return;
+    var out = document.createElement("small");
+    out.className = "word-count";
+    out.setAttribute("aria-live", "polite");
+    box.insertAdjacentElement("afterend", out);
+    function count() {
+      var words = box.value.split(/\s+/).filter(function (w) { return w.length > 0; }).length;
+      out.textContent = words + " of " + limit + " words";
+      out.classList.toggle("over", words > limit);
+      box.setCustomValidity(words > limit ? "Please keep this to " + limit + " words or fewer." : "");
+    }
+    box.addEventListener("input", count);
+    count();
+  });
+
   // Catalogue: keep the active chip styling in sync for browsers without :has()
   var chips = document.querySelector(".area-chips");
   if (chips) {

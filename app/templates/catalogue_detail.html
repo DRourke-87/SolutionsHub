@@ -34,17 +34,16 @@
     <p class="pre body-copy">{{ snap.technical_description }}</p>
   </section>
   <section class="card card-benefits">
-    <h2 class="section-title">Key customer benefits</h2>
-    <p class="pre body-copy">{{ snap.key_benefits }}</p>
+    <h2 class="section-title">Key differentiators</h2>
+    <p class="pre body-copy">{{ snap.key_differentiators }}</p>
   </section>
   <section class="card">
     <h2 class="section-title">Readiness &amp; deployment</h2>
     <div class="grid-2">
-      <div class="field"><div class="field-label">Level of readiness</div><div class="field-value">{{ READINESS_LABELS[ReadinessLevel(snap.readiness_level)] if snap.readiness_level else '—' }}</div></div>
-      <div class="field"><div class="field-label">Deployed or proposed</div><div class="field-value">{{ DEPLOYMENT_LABELS[DeploymentStatus(snap.deployment_status)] if snap.deployment_status else '—' }}</div></div>
+      <div class="field"><div class="field-label">Level of readiness achieved</div><div class="field-value">{{ READINESS_LABELS[ReadinessLevel(snap.readiness_level)] if snap.readiness_level else '—' }}</div></div>
+      <div class="field"><div class="field-label">Currently bid on a proposal</div><div class="field-value">{{ 'Yes' if snap.on_proposal else ('No' if snap.on_proposal == False else '—') }}</div></div>
     </div>
     {% if snap.readiness_programs %}<div class="field"><div class="field-label">Programs and clients</div><div class="field-value pre">{{ snap.readiness_programs }}</div></div>{% endif %}
-    {% if snap.deployment_detail %}<div class="field"><div class="field-label">Deployment detail</div><div class="field-value pre">{{ snap.deployment_detail }}</div></div>{% endif %}
     {% if snap.additional_customers %}<div class="field"><div class="field-label">Where else this could apply</div><div class="field-value pre">{{ snap.additional_customers }}</div></div>{% endif %}
   </section>
 </div>
@@ -59,13 +58,15 @@
   <section class="card">
     <h3>Offering owners</h3>
     <ul class="contacts">
-      {% for c in owners %}<li><span class="muted small">{{ CONTACT_ROLE_LABELS[ContactRole(c.role)] }}</span><br><strong>{{ c.name }}</strong><br><a href="mailto:{{ c.email }}">{{ c.email }}</a>{% if c.phone %} · {{ c.phone }}{% endif %}</li>
+      {% for c in owners %}<li><span class="muted small">{{ c.role|contact_role_label }}</span><br><strong>{{ c.name }}</strong><br><a href="mailto:{{ c.email }}">{{ c.email }}</a>{% if c.phone %} · {{ c.phone }}{% endif %}</li>
       {% else %}<li class="muted">No owners recorded.</li>{% endfor %}
     </ul>
   </section>
   <section class="card">
     <h3>Supporting resources</h3>
     {% if snap.resource_links_notes %}<p class="pre small">{{ snap.resource_links_notes }}</p>{% endif %}
+    {% if snap.relevant_partnerships %}<div class="field"><div class="field-label">Relevant partnerships</div><div class="field-value pre small">{{ snap.relevant_partnerships }}</div></div>{% endif %}
+    {% if snap.partnership_url %}<p class="small"><a href="{{ snap.partnership_url }}" target="_blank" rel="noopener">Partner website ↗</a></p>{% endif %}
     {% if sub.active_attachments %}
     <ul class="attach-list small">
       {% for a in sub.active_attachments %}<li><a href="/submissions/{{ sub.id }}/attachments/{{ a.id }}/download">{{ a.original_filename }}</a> <span class="muted">{{ a.size_bytes|filesize }}</span></li>{% endfor %}

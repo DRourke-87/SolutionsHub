@@ -2,11 +2,19 @@
 {% block title %}{% if is_new %}New submission{% else %}Edit {{ sub.display_ref }}{% endif %}{% endblock %}
 {% block content %}
 {% set selected = selected_caps or [] %}
+{% macro guidance_link() -%}
+{% if settings.sensitive_data_guidance_url %} <a href="{{ settings.sensitive_data_guidance_url }}" target="_blank" rel="noopener">What counts as sensitive data?</a>{% endif %}
+{%- endmacro %}
 <div class="page-head">
   <div>
     <h1>{% if is_new %}Solution / Offering Executive Summary{% else %}Edit {{ sub.display_ref }}{% endif %}</h1>
     <p class="lead">Use this form to capture key information about your solution or offering. Fields marked <span class="req">*</span> are required before submitting.</p>
   </div>
+</div>
+
+<div class="flash flash-warning" role="note">
+  <strong>Do not submit sensitive information.</strong>
+  <p>{{ SENSITIVE_DATA_DISCLAIMER }}{{ guidance_link() }}</p>
 </div>
 
 {% if errors %}
@@ -44,16 +52,16 @@
     <div class="fgroup">
       <label for="customer_challenge">Customer challenge <span class="req">*</span></label>
       <small class="muted">What customer challenge does this solution address?</small>
-      <textarea id="customer_challenge" name="customer_challenge" rows="4" required>{{ sub.customer_challenge or '' }}</textarea>
+      <textarea id="customer_challenge" name="customer_challenge" rows="4" required data-word-limit="{{ WORD_LIMITS.customer_challenge }}">{{ sub.customer_challenge or '' }}</textarea>
     </div>
     <div class="fgroup">
       <label for="technical_description">Description of technical solution <span class="req">*</span></label>
       <small class="muted">Describe what the solution is, how it works, and the key components or approach.</small>
-      <textarea id="technical_description" name="technical_description" rows="6" required>{{ sub.technical_description or '' }}</textarea>
+      <textarea id="technical_description" name="technical_description" rows="6" required data-word-limit="{{ WORD_LIMITS.technical_description }}">{{ sub.technical_description or '' }}</textarea>
     </div>
     <div class="fgroup">
       <label>Offering owner(s) <span class="req">*</span></label>
-      <small class="muted">Name the lead(s) for this offering with contact information. Include the solution architect responsible if not already captured, and any co-leads or backups to maintain continuity if ownership changes.</small>
+      <small class="muted">Name the lead(s) for this offering with contact information, using the RACI owner categories: <strong>Owner - Technical</strong> for the technical authority (including the solution architect) and <strong>Owner - Operations</strong> for the operational lead. Add both where they differ so continuity is maintained if ownership changes.</small>
       <div id="contacts">
         {% set editable_contacts = sub.contacts|rejectattr('contact_role', 'equalto', 'recorder')|list %}
         {% for c in editable_contacts %}
@@ -61,7 +69,7 @@
           <input name="contact_name" placeholder="Name" value="{{ c.name }}" maxlength="150">
           <input name="contact_email" type="email" placeholder="Email" value="{{ c.email }}">
           <select name="contact_role">
-            {% for r in [ContactRole.OWNER, ContactRole.CO_LEAD, ContactRole.SOLUTION_ARCHITECT] %}<option value="{{ r.value }}" {% if c.contact_role == r.value %}selected{% endif %}>{{ CONTACT_ROLE_LABELS[r] }}</option>{% endfor %}
+            {% for r in SELECTABLE_CONTACT_ROLES %}<option value="{{ r.value }}" {% if c.contact_role == r.value %}selected{% endif %}>{{ CONTACT_ROLE_LABELS[r] }}</option>{% endfor %}
           </select>
           <input name="contact_phone" placeholder="Phone (optional)" value="{{ c.phone or '' }}" maxlength="50">
           <button type="button" class="btn btn-ghost btn-sm js-remove-row" aria-label="Remove contact">✕</button>
@@ -72,7 +80,7 @@
           <input name="contact_name" placeholder="Name" maxlength="150">
           <input name="contact_email" type="email" placeholder="Email">
           <select name="contact_role">
-            {% for r in [ContactRole.OWNER, ContactRole.CO_LEAD, ContactRole.SOLUTION_ARCHITECT] %}<option value="{{ r.value }}">{{ CONTACT_ROLE_LABELS[r] }}</option>{% endfor %}
+            {% for r in SELECTABLE_CONTACT_ROLES %}<option value="{{ r.value }}">{{ CONTACT_ROLE_LABELS[r] }}</option>{% endfor %}
           </select>
           <input name="contact_phone" placeholder="Phone (optional)" maxlength="50">
           <button type="button" class="btn btn-ghost btn-sm js-remove-row" aria-label="Remove contact">✕</button>
@@ -84,7 +92,7 @@
           <input name="contact_name" placeholder="Name" maxlength="150">
           <input name="contact_email" type="email" placeholder="Email">
           <select name="contact_role">
-            {% for r in [ContactRole.OWNER, ContactRole.CO_LEAD, ContactRole.SOLUTION_ARCHITECT] %}<option value="{{ r.value }}">{{ CONTACT_ROLE_LABELS[r] }}</option>{% endfor %}
+            {% for r in SELECTABLE_CONTACT_ROLES %}<option value="{{ r.value }}">{{ CONTACT_ROLE_LABELS[r] }}</option>{% endfor %}
           </select>
           <input name="contact_phone" placeholder="Phone (optional)" maxlength="50">
           <button type="button" class="btn btn-ghost btn-sm js-remove-row" aria-label="Remove contact">✕</button>
@@ -120,38 +128,35 @@
   <section class="card">
     <h2 class="section-title">Section 3: Market &amp; opportunity analysis</h2>
     <div class="fgroup">
-      <label for="key_benefits">Key customer benefit(s) <span class="req">*</span></label>
-      <small class="muted">Provide 2–5 bullet points of the key customer benefit(s): how it is differentiated; what is unique, best, first, or only about it?</small>
-      <textarea id="key_benefits" name="key_benefits" rows="5" required>{{ sub.key_benefits or '' }}</textarea>
+      <label for="key_differentiators">Key Differentiators <span class="req">*</span></label>
+      <small class="muted">Provide 2-5 bullet points summarizing how your solution is differentiated; what is unique, best, first, or only about it?</small>
+      <textarea id="key_differentiators" name="key_differentiators" rows="5" required data-word-limit="{{ WORD_LIMITS.key_differentiators }}">{{ sub.key_differentiators or '' }}</textarea>
     </div>
     <fieldset class="fgroup">
-      <legend>Level of readiness <span class="req">*</span></legend>
+      <legend>Level of readiness achieved <span class="req">*</span></legend>
       <div class="radio-row">
       {% for r in ReadinessLevel %}<label class="radio"><input type="radio" name="readiness_level" value="{{ r.value }}" {% if sub.readiness_level == r.value %}checked{% endif %} required> {{ READINESS_LABELS[r] }}</label>{% endfor %}
       </div>
       <label for="readiness_programs" class="sub-label">Please list any relevant programs or clients for which this solution has been conceptualized or deployed.</label>
       <textarea id="readiness_programs" name="readiness_programs" rows="2">{{ sub.readiness_programs or '' }}</textarea>
     </fieldset>
-    <div class="grid-2">
-      <div class="fgroup">
-        <label for="deployment_status">Currently deployed or proposed <span class="req">*</span></label>
-        <small class="muted">Is this solution currently deployed or included on a proposal?</small>
-        <select id="deployment_status" name="deployment_status" required>
-          <option value="">Select one</option>
-          {% for d in DeploymentStatus %}<option value="{{ d.value }}" {% if sub.deployment_status == d.value %}selected{% endif %}>{{ DEPLOYMENT_LABELS[d] }}</option>{% endfor %}
-        </select>
-        <textarea name="deployment_detail" rows="2" placeholder="For which program or customer? Identify if proposed or deployed.">{{ sub.deployment_detail or '' }}</textarea>
-      </div>
-      <div class="fgroup">
-        <label for="additional_customers">Additional customers</label>
-        <small class="muted">Beyond current customers, describe where else you envision we might sell this solution.</small>
-        <textarea id="additional_customers" name="additional_customers" rows="4">{{ sub.additional_customers or '' }}</textarea>
-      </div>
+    <div class="fgroup">
+      <label for="on_proposal">Is this solution currently bid on a proposal? <span class="req">*</span></label>
+      <select id="on_proposal" name="on_proposal" required>
+        <option value="">Select one</option>
+        <option value="yes" {% if sub.on_proposal == True %}selected{% endif %}>Yes</option>
+        <option value="no" {% if sub.on_proposal == False %}selected{% endif %}>No</option>
+      </select>
     </div>
     <div class="fgroup">
-      <label for="current_pipeline">Current pipeline <span class="req">*</span></label>
+      <label for="current_pipeline">Current pipeline</label>
       <small class="muted">What current opportunities does this solution align to? What is their contract value?</small>
-      <textarea id="current_pipeline" name="current_pipeline" rows="3" required>{{ sub.current_pipeline or '' }}</textarea>
+      <textarea id="current_pipeline" name="current_pipeline" rows="3">{{ sub.current_pipeline or '' }}</textarea>
+    </div>
+    <div class="fgroup">
+      <label for="additional_customers">Additional customers</label>
+      <small class="muted">Beyond current customers, describe where else you envision we might sell this solution.</small>
+      <textarea id="additional_customers" name="additional_customers" rows="4">{{ sub.additional_customers or '' }}</textarea>
     </div>
   </section>
 
@@ -160,7 +165,8 @@
     <div class="grid-2">
       <div class="fgroup">
         <label for="files">Supporting resource files</label>
-        <small class="muted">Upload documents and assets that provide more detail. Up to {{ settings.max_attachments_per_submission }} files, {{ settings.max_attachment_mb }} MB each.</small>
+        <small class="muted">Optional. Upload documents and assets that provide more detail. Up to {{ settings.max_attachments_per_submission }} files, {{ settings.max_attachment_mb }} MB each.</small>
+        <p class="note-sensitive"><strong>No sensitive data in attachments.</strong> {{ SENSITIVE_DATA_ATTACHMENT_NOTE }}{{ guidance_link() }}</p>
         <input id="files" name="files" type="file" multiple>
         {% if not is_new and sub.active_attachments %}
         <ul class="attach-list small">{% for a in sub.active_attachments %}<li>{{ a.original_filename }} <span class="muted">({{ a.size_bytes|filesize }})</span></li>{% endfor %}</ul>
@@ -168,10 +174,36 @@
       </div>
       <div class="fgroup">
         <label for="resource_links_notes">Supporting resource links or notes</label>
-        <small class="muted">List any relevant resource links, tools, or descriptions that should accompany the uploaded files. At least one file or one link/note is required.</small>
+        <small class="muted">Optional. List any relevant resource links, tools, or descriptions that should accompany the uploaded files.</small>
         <textarea id="resource_links_notes" name="resource_links_notes" rows="5">{{ sub.resource_links_notes or '' }}</textarea>
       </div>
     </div>
+    <div class="grid-2">
+      <div class="fgroup">
+        <label for="relevant_partnerships">Relevant partnerships</label>
+        <small class="muted">List any partners, teammates, OEMs, universities or vendors this solution depends on or is delivered with.</small>
+        <textarea id="relevant_partnerships" name="relevant_partnerships" rows="4">{{ sub.relevant_partnerships or '' }}</textarea>
+      </div>
+      <div class="fgroup">
+        <label for="partnership_url">Partner website</label>
+        <small class="muted">Link to the partner's website. If there is more than one partner, add the other links alongside their names above.</small>
+        <input id="partnership_url" name="partnership_url" type="url" maxlength="1000" placeholder="https://…" value="{{ sub.partnership_url or '' }}">
+      </div>
+    </div>
+  </section>
+
+  <section class="card card-consent">
+    <h2 class="section-title">Confirmation</h2>
+    <p>{{ SENSITIVE_DATA_DISCLAIMER }}{{ guidance_link() }}</p>
+    <label class="check consent-check">
+      <input type="checkbox" name="sensitive_data_ack" value="1" required {% if sub.sensitive_data_acknowledged %}checked{% endif %}>
+      <span>{{ SENSITIVE_DATA_CONFIRMATION }} <span class="req">*</span></span>
+    </label>
+    {% if sub.sensitive_data_acknowledged %}
+    <p class="muted small">Confirmed by {{ sub.sensitive_data_ack_by_email }} on {{ sub.sensitive_data_ack_at|dt }}.</p>
+    {% else %}
+    <p class="muted small">This confirmation is required before the form can be submitted, and is recorded with your name and the date and time.</p>
+    {% endif %}
   </section>
 
   <div class="form-actions">

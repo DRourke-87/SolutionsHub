@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app import policy
 from app.config import get_settings
+from app.content import WORD_LIMITS, word_limit_errors
 from app.db import utcnow
 from app.enums import EventType, Status
 from app.models import (
@@ -58,6 +59,13 @@ def mint_reference(db: Session) -> str:
     return f"SOL-{year}-{seq.last_value:04d}"
 
 
+FIELD_LABELS = {
+    "customer_challenge": "Customer challenge",
+    "technical_description": "Description of technical solution",
+    "key_differentiators": "Key Differentiators",
+}
+
+
 def completeness_errors(sub: Submission) -> list[str]:
     """Required-field validation used before Submitted, Resubmit and Awaiting Approval."""
     errors: list[str] = []
@@ -67,18 +75,13 @@ def completeness_errors(sub: Submission) -> list[str]:
         errors.append("Business group is required.")
     if sub.cto_aware is None:
         errors.append("Please confirm whether your business group CTO is aware of this request.")
-    for label, value in (
-        ("Customer challenge", sub.customer_challenge),
-        ("Description of technical solution", sub.technical_description),
-        ("Key customer benefits", sub.key_benefits),
-        ("Current pipeline", sub.current_pipeline),
-    ):
-        if not (value or "").strip():
-            errors.append(f"{label} is required.")
+    for name in ("customer_challenge", "technical_description", "key_differentiators"):
+        if not (getattr(sub, name) or "").strip():
+            errors.append(f"{FIELD_LABELS[name]} is required.")
     if not sub.readiness_level:
-        errors.append("Level of readiness is required.")
-    if not sub.deployment_status:
-        errors.append("Currently deployed or proposed is required.")
+        errors.append("Level of readiness achieved is required.")
+    if sub.on_proposal is None:
+        errors.append("Please say whether this solution is currently bid on a proposal.")
     if not sub.has_owner:
         errors.append("At least one Offering Owner with an email address is required.")
     n_caps = len(sub.capabilities)
@@ -87,8 +90,9 @@ def completeness_errors(sub: Submission) -> list[str]:
     for sc in sub.capabilities:
         if sc.capability.is_other and not (sc.other_text or "").strip():
             errors.append("Please specify the 'Other' capability.")
-    if not sub.active_attachments and not (sub.resource_links_notes or "").strip():
-        errors.append("Provide at least one supporting file or a resource link / note.")
+    if not sub.sensitive_data_acknowledged:
+        errors.append("Please confirm that no sensitive information has been entered or attached.")
+    errors += word_limit_errors({f: getattr(sub, f) for f in WORD_LIMITS}, FIELD_LABELS)
     return errors
 
 

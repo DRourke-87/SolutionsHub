@@ -25,7 +25,7 @@
       <span>{{ (sub.published_at or sub.approved_at)|date }}</span>
     </div>
     <div class="offer-foot">
-      {% set owner = (sub.contacts_by_role(ContactRole.OWNER)|first) %}
+      {% set owner = (sub.owners|first) %}
       <span class="offer-owner">{% if owner %}{{ owner.name }}{% else %}{{ sub.created_by_email }}{% endif %}</span>
       <span class="offer-cta">View offering →</span>
     </div>

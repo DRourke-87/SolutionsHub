@@ -15,7 +15,9 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db import Base, utcnow
-from app.enums import ContactRole, Role, Status
+from app.enums import OWNER_CONTACT_ROLES, ContactRole, Role, Status
+
+_OWNER_ROLE_VALUES = {r.value for r in OWNER_CONTACT_ROLES}
 
 
 # --------------------------------------------------------------------------- reference data
@@ -90,14 +92,20 @@ class Submission(Base):
     cto_aware: Mapped[bool | None] = mapped_column(Boolean)
     customer_challenge: Mapped[str] = mapped_column(Text, default="")
     technical_description: Mapped[str] = mapped_column(Text, default="")
-    key_benefits: Mapped[str] = mapped_column(Text, default="")
+    key_differentiators: Mapped[str] = mapped_column(Text, default="")
     readiness_level: Mapped[str | None] = mapped_column(String(40))
     readiness_programs: Mapped[str] = mapped_column(Text, default="")
-    deployment_status: Mapped[str | None] = mapped_column(String(20))
-    deployment_detail: Mapped[str] = mapped_column(Text, default="")
-    additional_customers: Mapped[str] = mapped_column(Text, default="")
+    on_proposal: Mapped[bool | None] = mapped_column(Boolean)
     current_pipeline: Mapped[str] = mapped_column(Text, default="")
+    additional_customers: Mapped[str] = mapped_column(Text, default="")
     resource_links_notes: Mapped[str] = mapped_column(Text, default="")
+    relevant_partnerships: Mapped[str] = mapped_column(Text, default="")
+    partnership_url: Mapped[str | None] = mapped_column(String(1000))
+
+    # Recorded consent that no sensitive data was entered or attached (ITAR / CUI / FCI and similar)
+    sensitive_data_ack_at: Mapped[datetime | None]
+    sensitive_data_ack_by_email: Mapped[str | None] = mapped_column(String(320))
+    sensitive_data_ack_ip: Mapped[str | None] = mapped_column(String(64))
 
     created_by_email: Mapped[str] = mapped_column(String(320), index=True)
     assigned_reviewer_email: Mapped[str | None] = mapped_column(String(320))
@@ -152,7 +160,7 @@ class Submission(Base):
 
     @property
     def owner_emails(self) -> set[str]:
-        """Everyone who should be notified as an owner: recorder + owners + co-leads + architects."""
+        """Everyone who should be notified as an owner: the recorder and the technical / operations owners."""
         return self.contact_emails
 
     @property
@@ -163,8 +171,16 @@ class Submission(Base):
         return [c for c in self.contacts if c.contact_role == role.value]
 
     @property
+    def owners(self) -> list[SubmissionContact]:
+        return [c for c in self.contacts if c.contact_role in _OWNER_ROLE_VALUES]
+
+    @property
     def has_owner(self) -> bool:
-        return any(c.contact_role == ContactRole.OWNER.value and c.email for c in self.contacts)
+        return any(c.email for c in self.owners)
+
+    @property
+    def sensitive_data_acknowledged(self) -> bool:
+        return self.sensitive_data_ack_at is not None
 
     def is_contact(self, email: str | None) -> bool:
         return bool(email) and email.lower() in self.contact_emails
@@ -188,7 +204,10 @@ class SubmissionContact(Base):
     def role_label(self) -> str:
         from app.enums import CONTACT_ROLE_LABELS
 
-        return CONTACT_ROLE_LABELS.get(ContactRole(self.contact_role), self.contact_role)
+        try:
+            return CONTACT_ROLE_LABELS[ContactRole(self.contact_role)]
+        except ValueError:  # a role retired since this row was written
+            return self.contact_role.replace("_", " ").title()
 
 
 class SubmissionCapability(Base):

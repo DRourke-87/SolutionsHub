@@ -172,6 +172,7 @@ All settings are environment variables (App Service application settings). Defau
 | `EMAIL_BACKEND` / `ACS_CONNECTION_STRING` / `ACS_SENDER` | Email delivery | `acs`, from `listKeys`, verified sender |
 | `STORAGE_BACKEND` / `AZURE_STORAGE_CONNECTION_STRING` / `AZURE_STORAGE_CONTAINER` | Attachments | `azure`, account connection string, `attachments` |
 | `MAX_ATTACHMENTS_PER_SUBMISSION`, `MAX_ATTACHMENT_MB`, `ALLOWED_ATTACHMENT_EXTENSIONS` | Upload limits | 10, 25, see defaults |
+| `SENSITIVE_DATA_GUIDANCE_URL` | Link shown beside the "no sensitive data" disclaimer to the internal page defining ITAR / CUI / FCI. Blank hides the link | set once Corporate Security supplies the page |
 | `REMINDER_*_DAYS`, `REVIEW_CYCLE_MONTHS`, `REVIEW_NOTICE_DAYS_BEFORE` | Workflow timing | see defaults |
 | `SCHEDULER_ENABLED` | Run background jobs in this instance | `true` |
 | `APPLICATIONINSIGHTS_CONNECTION_STRING` | Telemetry | set by template |
