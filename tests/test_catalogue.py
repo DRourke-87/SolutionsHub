@@ -30,9 +30,9 @@ def _offering(db, name: str, status: Status, cap_codes: list[str], challenge: st
         cto_aware=True,
         customer_challenge=challenge,
         technical_description="Solution",
-        key_benefits="- Benefit",
+        key_differentiators="- Benefit",
         readiness_level="prototype",
-        deployment_status="proposed",
+        on_proposal=True,
         current_pipeline="x",
         created_by_email="owner@amentum.com",
         approved_at=utcnow() - timedelta(days=2),
@@ -43,7 +43,9 @@ def _offering(db, name: str, status: Status, cap_codes: list[str], challenge: st
     db.flush()
     sub.reference_no = mint_reference(db)
     sub.contacts.append(
-        SubmissionContact(contact_role=ContactRole.OWNER.value, name="Olivia Owner", email="owner@amentum.com")
+        SubmissionContact(
+            contact_role=ContactRole.OWNER_TECHNICAL.value, name="Olivia Owner", email="owner@amentum.com"
+        )
     )
     for code in cap_codes:
         cap = db.execute(select(Capability).where(Capability.code == code)).scalar_one()

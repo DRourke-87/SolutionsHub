@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session, selectinload
 from app import policy
 from app.auth import require_user
 from app.db import get_db
-from app.enums import READINESS_LABELS, ReadinessLevel, Status
+from app.enums import OWNER_CONTACT_ROLES, READINESS_LABELS, ReadinessLevel, Status
 from app.models import (
     BusinessGroup,
     Capability,
@@ -90,7 +90,7 @@ def catalogue(
                 Submission.offering_name.ilike(like),
                 Submission.customer_challenge.ilike(like),
                 Submission.technical_description.ilike(like),
-                Submission.key_benefits.ilike(like),
+                Submission.key_differentiators.ilike(like),
             )
         )
     items = (
@@ -163,7 +163,9 @@ def catalogue_detail(
     snap = approved.snapshot if approved else snapshot(sub)
     db.add(PageView(submission_id=sub.id, viewer_email=user.email, kind="catalogue_view"))
     db.commit()
-    owners = [c for c in snap.get("contacts", []) if c.get("role") in ("owner", "co_lead", "solution_architect")]
+    # Snapshots taken before the RACI change still carry the retired owner / co-lead / architect roles.
+    owner_roles = {r.value for r in OWNER_CONTACT_ROLES} | {"owner", "co_lead", "solution_architect"}
+    owners = [c for c in snap.get("contacts", []) if c.get("role") in owner_roles]
     related = (
         db.execute(
             _base_query()

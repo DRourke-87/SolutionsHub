@@ -42,6 +42,9 @@ class Settings(BaseSettings):
     max_attachment_mb: int = 25
     allowed_attachment_extensions: str = "pdf,doc,docx,xls,xlsx,ppt,pptx,txt,csv,md,png,jpg,jpeg,gif,svg,zip,vsdx,mp4"
 
+    # Sensitive data guidance: link shown beside the disclaimer (blank hides the link)
+    sensitive_data_guidance_url: str = ""
+
     # Workflow timing (business days unless stated)
     reminder_owner_days: int = 5
     reminder_reviewer_pool_days: int = 3

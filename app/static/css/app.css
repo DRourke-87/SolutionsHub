@@ -100,6 +100,12 @@ input[type=file] { font: inherit; }
 .inline-form input[type=file] { flex: 1; }
 .form-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; padding: 6px 0 20px; }
 .note-yellow { background: #fff3cd; border-left: 4px solid #e0b866; padding: 8px 12px; border-radius: 4px; font-size: .92rem; }
+.note-sensitive { background: var(--warn-bg); border-left: 4px solid #e0b866; padding: 8px 12px; border-radius: 4px; font-size: .88rem; margin: 6px 0 8px; }
+.card-consent { border-color: #e0b866; }
+.consent-check { display: flex; gap: 10px; align-items: flex-start; font-size: .95rem; line-height: 1.45; }
+.consent-check input { margin-top: 3px; flex: 0 0 auto; }
+.word-count { display: block; font-size: .82rem; color: var(--muted); margin-top: 4px; }
+.word-count.over { color: var(--danger); font-weight: 600; }
 .contact-row { display: grid; grid-template-columns: 1.2fr 1.4fr 1fr .9fr auto; gap: 8px; margin-bottom: 8px; align-items: center; }
 @media (max-width: 800px) { .contact-row { grid-template-columns: 1fr 1fr; } }
 .cap-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }

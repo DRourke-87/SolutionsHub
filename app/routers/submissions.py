@@ -14,8 +14,9 @@ from starlette.datastructures import UploadFile
 from app import policy, workflow
 from app.auth import require_user
 from app.config import get_settings
+from app.content import SENSITIVE_DATA_CONFIRMATION, WORD_LIMITS, word_limit_errors
 from app.db import get_db, get_sessionmaker, utcnow
-from app.enums import ContactRole, DeploymentStatus, EventType, ReadinessLevel, Role, Status
+from app.enums import SELECTABLE_CONTACT_ROLES, ContactRole, EventType, ReadinessLevel, Role, Status
 from app.models import (
     Attachment,
     BusinessGroup,
@@ -121,7 +122,7 @@ def _scope_filter(user: User):
 
 
 # --------------------------------------------------------------------------- form parsing
-def _apply_form(db: Session, sub: Submission, form, user: User) -> list[str]:
+def _apply_form(db: Session, sub: Submission, form, user: User, meta: workflow.RequestMeta | None = None) -> list[str]:
     """Copy form fields onto the submission. Returns validation errors (format only; completeness is separate)."""
     errors: list[str] = []
 
@@ -135,16 +136,33 @@ def _apply_form(db: Session, sub: Submission, form, user: User) -> list[str]:
     sub.cto_aware = True if cto == "yes" else False if cto == "no" else None
     sub.customer_challenge = g("customer_challenge")
     sub.technical_description = g("technical_description")
-    sub.key_benefits = g("key_benefits")
+    sub.key_differentiators = g("key_differentiators")
     sub.readiness_level = g("readiness_level") if g("readiness_level") in {r.value for r in ReadinessLevel} else None
     sub.readiness_programs = g("readiness_programs")
-    sub.deployment_status = (
-        g("deployment_status") if g("deployment_status") in {d.value for d in DeploymentStatus} else None
-    )
-    sub.deployment_detail = g("deployment_detail")
-    sub.additional_customers = g("additional_customers")
+    proposal = g("on_proposal")
+    sub.on_proposal = True if proposal == "yes" else False if proposal == "no" else None
     sub.current_pipeline = g("current_pipeline")
+    sub.additional_customers = g("additional_customers")
     sub.resource_links_notes = g("resource_links_notes")
+    sub.relevant_partnerships = g("relevant_partnerships")
+    sub.partnership_url = g("partnership_url")[:1000] or None
+    errors += word_limit_errors({f: getattr(sub, f) for f in WORD_LIMITS}, workflow.FIELD_LABELS)
+
+    # Sensitive-data consent: recorded with who and when so it can be produced later. Ticking it again on a
+    # later edit refreshes the record; clearing it withdraws the confirmation and blocks submission.
+    if form.get("sensitive_data_ack"):
+        if not sub.sensitive_data_acknowledged:
+            sub.sensitive_data_ack_at = utcnow()
+            sub.sensitive_data_ack_by_email = user.email
+            sub.sensitive_data_ack_ip = meta.ip if meta else None
+            if sub.id is not None:  # skipped when re-rendering an unsaved form
+                workflow.record_event(
+                    db, sub, EventType.SENSITIVE_DATA_ACK, user, note=SENSITIVE_DATA_CONFIRMATION, meta=meta
+                )
+    else:
+        sub.sensitive_data_ack_at = None
+        sub.sensitive_data_ack_by_email = None
+        sub.sensitive_data_ack_ip = None
 
     # capabilities (1..3)
     cap_ids = []
@@ -191,12 +209,12 @@ def _apply_form(db: Session, sub: Submission, form, user: User) -> list[str]:
     for i in range(max(len(names), len(emails))):
         name = (names[i] if i < len(names) else "").strip()
         email = (emails[i] if i < len(emails) else "").strip().lower()
-        role = (roles[i] if i < len(roles) else ContactRole.OWNER.value).strip()
+        role = (roles[i] if i < len(roles) else ContactRole.OWNER_TECHNICAL.value).strip()
         phone = (phones[i] if i < len(phones) else "").strip() or None
         if not name and not email:
             continue
-        if role not in {r.value for r in ContactRole} or role == ContactRole.RECORDER.value:
-            role = ContactRole.OWNER.value
+        if role not in {r.value for r in SELECTABLE_CONTACT_ROLES}:
+            role = ContactRole.OWNER_TECHNICAL.value
         if "@" not in email:
             errors.append(f"Contact '{name or email}' needs a valid email address.")
             continue
@@ -352,7 +370,8 @@ async def create(
     form = await request.form()
     sub = Submission(offering_name="", created_by_email=user.email, status=Status.DRAFT.value)
     db.add(sub)
-    errors = _apply_form(db, sub, form, user)
+    db.flush()
+    errors = _apply_form(db, sub, form, user, _meta(request))
     db.flush()
     files = [f for f in form.getlist("files") if isinstance(f, UploadFile)]
     errors += await _store_uploads(db, sub, files, user)
@@ -366,7 +385,7 @@ async def create(
         db.rollback()
         # Re-render with the user's input (unsaved) so nothing is lost
         draft = Submission(offering_name="", created_by_email=user.email, status=Status.DRAFT.value)
-        _apply_form(db, draft, form, user)
+        _apply_form(db, draft, form, user, _meta(request))
         db.expunge_all()
         return render(
             request,
@@ -415,7 +434,7 @@ async def edit(
     if not policy.can_edit(user, sub):
         raise HTTPException(403, "This submission cannot be edited in its current state")
     form = await request.form()
-    errors = _apply_form(db, sub, form, user)
+    errors = _apply_form(db, sub, form, user, _meta(request))
     files = [f for f in form.getlist("files") if isinstance(f, UploadFile)]
     errors += await _store_uploads(db, sub, files, user)
     intent = form.get("intent", "save")

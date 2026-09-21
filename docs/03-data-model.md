@@ -21,7 +21,7 @@ reproduced; one new field (Offering Name) is added because the current form has 
 | 1 | Is the CTO for your business group aware that you are submitting this request? | Yes | Yes / No | `submissions.cto_aware` (bit) | |
 | 2 | Customer Challenge | Yes | Long text | `submissions.customer_challenge` | |
 | 3 | Description of Technical Solution | Yes | Long text | `submissions.technical_description` | |
-| 4 | Offering Owner(s) incl. contact info and solution architect | Yes | Repeating contact rows | `submission_contacts` rows with `contact_role` in (`owner`, `co_lead`, `solution_architect`) | Structured as name + email + optional phone per contact so that owners can be notified and granted edit rights. At least one `owner` required. |
+| 4 | Offering Owner(s) incl. contact info | Yes | Repeating contact rows | `submission_contacts` rows with `contact_role` in (`owner_technical`, `owner_operations`) | Structured as name + email + optional phone per contact so that owners can be notified and granted edit rights. Categories align to the RACI: **Owner - Technical** and **Owner - Operations**. At least one owner required. |
 
 ### Section 2 – Offering Classification (select at most 3 across all areas)
 
@@ -31,33 +31,44 @@ reproduced; one new field (Offering Name) is added because the current form has 
 | 6 | Space Systems | Group | Checkboxes | same |
 | 7 | Digital Transformation | Group | Checkboxes | same |
 | 8 | Sustainability & Environment | Group | Checkboxes | same |
-| 9 | Advanced Energy | Group | Checkboxes | same |
-| 10 | Data Analytics and Cyber (includes "Other – please specify") | Group | Checkboxes + free text | same; `submission_capabilities.other_text` when `capabilities.code = 'other'` |
+| 9 | Advanced Energy Solutions | Group | Checkboxes | same |
+| 10 | Data Analytics and Cyber Solutions | Group | Checkboxes | same |
+| 11 | Other (please specify) | Group | Checkbox + free text | same; `submission_capabilities.other_text` when `capabilities.code = 'other'` |
 
 The form marks each area as required, but the instruction is "select at most 3 (your top 1–3 offerings)".
-The app enforces **minimum 1 and maximum 3 selections in total** across all six areas. The full taxonomy
-is in section 4 below.
+The app enforces **minimum 1 and maximum 3 selections in total** across all areas. "Other" is its own
+area (11) rather than an item under Data Analytics and Cyber Solutions. The full taxonomy is in section 4
+below.
 
 ### Section 3 – Market & Opportunity Analysis
 
 | # | Form field | Required | Type in app | Column | Notes |
 |---|---|---|---|---|---|
-| 11 | Key Customer Benefit(s) | Yes | Long text (2–5 bullets) | `submissions.key_benefits` | Guidance text kept from the form. |
-| 12 | Level of Readiness | Yes | Single choice | `submissions.readiness_level` | Values: `conceptual`, `prototype`, `test_phase`, `single_deployment`, `multi_client_deployment` |
-| 12 | Relevant programs or clients (conceptualised or deployed) | No | Long text | `submissions.readiness_programs` | Sub-question of 12. |
-| 13 | Currently Deployed or Proposed | Yes | Dropdown | `submissions.deployment_status` | Values: `deployed`, `proposed`, `both`, `neither`; plus `submissions.deployment_detail` text for program/customer. |
-| 14 | Additional Customers | No | Long text | `submissions.additional_customers` | Only optional field in the form besides 12's sub-question. |
-| 15 | Current Pipeline (opportunities and contract value) | Yes | Long text | `submissions.current_pipeline` | Free text; a structured opportunity table can be added later if wanted. |
+| 12 | Key Differentiators | Yes | Long text (2–5 bullets, ≤200 words) | `submissions.key_differentiators` | "Provide 2-5 bullet points summarizing how your solution is differentiated; what is unique, best, first, or only about it?" |
+| 13 | Level of Readiness Achieved | Yes | Single choice | `submissions.readiness_level` | Values: `conceptual` (Conceptual / White Paper), `prototype`, `test_phase` (Pilot / Test Phase), `single_deployment`, `multi_client_deployment` |
+| 13 | Relevant programs or clients (conceptualised or deployed) | No | Long text | `submissions.readiness_programs` | Sub-question of 13. |
+| 14 | Is this solution currently bid on a proposal? | Yes | Yes / No | `submissions.on_proposal` (bit) | Replaces the former "Currently Deployed or Proposed" dropdown. The follow-up "for which program or customer" box was removed as redundant with the readiness and pipeline fields. |
+| 15 | Current Pipeline (opportunities and contract value) | No | Long text | `submissions.current_pipeline` | Sits above Additional Customers; neither is required. |
+| 16 | Additional Customers | No | Long text | `submissions.additional_customers` | |
 
 ### Section 4 – Supporting Resources
 
 | # | Form field | Required | Type in app | Column / table | Notes |
 |---|---|---|---|---|---|
-| 16 | Supporting Resource Files (up to 10) | Yes* | File upload | `attachments` rows; binary in Blob Storage | Max 10 per submission. Size and type limits are open questions (proposed default: 25 MB per file; PDF, Office, images, ZIP). |
-| 17 | Supporting Resource Links or Notes | Yes* | Long text | `submissions.resource_links_notes` | |
+| 17 | Supporting Resource Files (up to 10) | No | File upload | `attachments` rows; binary in Blob Storage | Optional. Max 10 per submission, 25 MB per file; PDF, Office, images, ZIP. A sensitive-data warning sits directly above the file picker. |
+| 18 | Supporting Resource Links or Notes | No | Long text | `submissions.resource_links_notes` | Optional. |
+| 19 | Relevant Partnerships | No | Long text | `submissions.relevant_partnerships` | Partners, teammates, OEMs, universities or vendors involved in the solution. |
+| 20 | Partner website | No | URL (≤1000) | `submissions.partnership_url` | Link to the partner's website. |
 
-\* The form marks both 16 and 17 required. The app requires **at least one of** an attachment or a
-non-empty links/notes field, which matches the intent without forcing an upload when only links exist.
+### Confirmation (all sections)
+
+| # | Form field | Required | Type in app | Column | Notes |
+|---|---|---|---|---|---|
+| 21 | No sensitive data confirmation | Yes | Checkbox | `submissions.sensitive_data_ack_at`, `sensitive_data_ack_by_email`, `sensitive_data_ack_ip` | The submitter must confirm that nothing in the form or its attachments is ITAR / EAR, CUI, FCI, classified, customer-proprietary or personal. Ticking it writes a `sensitive_data_ack` workflow event so the consent can be produced later; clearing it withdraws the confirmation and blocks submission. Disclaimer text lives in `app/content.py` pending final wording from Corporate Security. |
+
+**Word limits.** Customer Challenge and Description of Technical Solution are capped at 300 words each and
+Key Differentiators at 200. Counters run live in the browser and the limits are re-checked server side in
+`app/content.py`.
 
 ---
 
@@ -65,10 +76,10 @@ non-empty links/notes field, which matches the intent without forcing an upload 
 
 | Table | Purpose | Key columns |
 |---|---|---|
-| `submissions` | One row per Solution / Offering record | `id`, `reference_no` (SOL-YYYY-NNNN), `offering_name`, `status`, `revision`, `business_group_id`, `cto_aware`, `customer_challenge`, `technical_description`, `key_benefits`, `readiness_level`, `readiness_programs`, `deployment_status`, `deployment_detail`, `additional_customers`, `current_pipeline`, `resource_links_notes`, `created_by_email`, `assigned_reviewer_email`, `approved_version_id`, `publish_destination_id`, `published_url`, `submitted_at`, `review_completed_at`, `published_at`, `next_review_due`, `created_at`, `updated_at`, `archived_at` |
-| `submission_contacts` | Recorder, owners, co-leads, solution architect | `submission_id`, `contact_role`, `name`, `email`, `phone`, `is_primary` |
+| `submissions` | One row per Solution / Offering record | `id`, `reference_no` (SOL-YYYY-NNNN), `offering_name`, `status`, `revision`, `business_group_id`, `cto_aware`, `customer_challenge`, `technical_description`, `key_differentiators`, `readiness_level`, `readiness_programs`, `on_proposal`, `current_pipeline`, `additional_customers`, `resource_links_notes`, `relevant_partnerships`, `partnership_url`, `sensitive_data_ack_at`, `sensitive_data_ack_by_email`, `sensitive_data_ack_ip`, `created_by_email`, `assigned_reviewer_email`, `approved_version_id`, `publish_destination_id`, `published_url`, `submitted_at`, `review_completed_at`, `published_at`, `next_review_due`, `created_at`, `updated_at`, `archived_at` |
+| `submission_contacts` | Recorder and the technical / operations owners | `submission_id`, `contact_role`, `name`, `email`, `phone`, `is_primary` |
 | `business_groups` | Dropdown reference data | `id`, `name`, `is_active`, `sort_order` |
-| `capability_areas` | The six classification areas | `id`, `name`, `sort_order` |
+| `capability_areas` | The six classification areas plus "Other" | `id`, `name`, `sort_order` |
 | `capabilities` | Items within each area (incl. `other`) | `id`, `area_id`, `code`, `name`, `is_active`, `sort_order` |
 | `submission_capabilities` | Selected capabilities (1–3) | `submission_id`, `capability_id`, `other_text` |
 | `attachments` | Metadata for uploaded files | `id`, `submission_id`, `blob_path`, `original_filename`, `content_type`, `size_bytes`, `sha256`, `uploaded_by_email`, `uploaded_at`, `deleted_at` |
@@ -121,7 +132,7 @@ erDiagram
         int business_group_id FK
         bit cto_aware
         string readiness_level
-        string deployment_status
+        bit on_proposal
         string created_by_email
         datetime published_at
         datetime next_review_due
@@ -155,42 +166,65 @@ erDiagram
 
 ## 4. Capability taxonomy seed data
 
-Seeded from the form. Admins can rename, deactivate, or add items; deactivated items remain valid on
-historical records.
+Seeded from the capability areas published on amentum.com. Admins can rename, deactivate, or add items;
+deactivated items remain valid on historical records.
 
 | Area | Capability |
 |---|---|
-| Mission Modernization & Sustainment | Logistics and Supply Chain |
-| | Systems Engineering & Sustainment |
-| | Advanced Test and Training |
-| | RDT&E |
-| | Intelligence Infrastructure |
+| Mission Modernization & Sustainment | Research Development, Test and Evaluation |
+|  | C5ISR Systems Engineering & Sustainment |
+|  | UAS Engineering & Sustainment |
+|  | Aviation Engineering & Sustainment |
+|  | Land Vehicles & Equipment Sustainment |
+|  | Naval Engineering & Sustainment |
+|  | Naval Deterrent Sustainment |
+|  | Advanced Test, Training, & Aerial Systems |
+|  | Global Logistics & Supply Chain Management |
+|  | Intelligence Infrastructure Solutions |
+|  | Nuclear Security and Deterrence |
+|  | Medical and Disaster Response |
 | Space Systems | Ground Systems |
-| | Space Ports |
-| | Orbital Operations |
-| Digital Transformation | Software Development |
-| | Critical Digital Infrastructure |
-| | Digital Engineering |
-| | Enterprise IT |
-| | IT Cybersecurity |
-| | Cloud |
+|  | Spaceports |
+|  | Spaceflight Hardware |
+|  | Orbit Operations |
+|  | Exploration Science |
+|  | Satellite Payloads |
+| Digital Transformation | Software Development & Engineering |
+|  | Information Analytics |
+|  | Critical Infrastructure and Advanced Networks |
+|  | Cybersecurity |
+|  | Digital Engineering |
+|  | Cloud |
+|  | Agile Delivery Process |
 | Sustainability & Environment | Environmental Remediation & Decommissioning |
-| | Environmental Consulting |
-| | Regulatory Compliance, Permitting, Licensing |
-| Advanced Energy | Nuclear Engineering & Design |
-| | Regulatory, Site Licensing & Permitting |
-| | Energy Consulting |
-| | Research, Lab and Test Bed Operations |
-| | Nuclear Energy Lifecycle |
-| Data Analytics and Cyber | AI-source Intelligence Collection & Analytics |
-| | Cyber Monitoring & Threat Analytics |
-| | Cyber Training |
-| | Offensive/Defensive Cyber Operations |
-| | Advanced IM/Communications |
-| | Other (please specify) |
+|  | Site Assessment & Characterization |
+|  | Environmental Consulting |
+|  | Environmental Risk Assessment |
+|  | Environmental Regulatory Compliance, Permitting and Licensing |
+|  | Eradication of Emerging Contaminants (PFAS) |
+|  | Environmental Site Restoration and Reuse |
+|  | Radioactive Waste Management and Radiation Protection |
+| Advanced Energy Solutions | Renewable Energy Solutions |
+|  | Energy Consulting |
+|  | Nuclear Engineering & Design |
+|  | Commissioning, Operational Support and Life Extension |
+|  | Regulatory, Site Licensing and Permitting |
+|  | Research, Laboratory and Energy Test Bed Operations |
+| Data Analytics and Cyber Solutions | All-Source Intelligence Collection & Analytics |
+|  | Counter Intelligence Solutions |
+|  | Continuous Cyber Monitoring & Threat Analytics |
+|  | Offensive / Defensive Cyber Operations |
+|  | Full-spectrum Cyber Training |
+|  | Advanced Communication Solutions |
+|  | Managed Bandwidth & Secure Network Solutions |
+|  | Integrated Biometrics |
+|  | Business Process Analytics |
+| Other | Other (please specify) |
 
-Total: 6 areas, 28 capabilities. Validation rule: 1 ≤ selected ≤ 3 across all areas; `other_text` is
-required when "Other" is selected.
+Total: 7 areas (six capability areas plus "Other"), 49 capabilities, taken from the
+capability pages on amentum.com. Validation rule: 1 ≤ selected ≤ 3 across all areas; `other_text` is
+required when "Other" is selected. Capabilities dropped from the taxonomy are deactivated rather than
+deleted so that historical records keep their classification.
 
 ---
 
@@ -199,11 +233,11 @@ required when "Other" is selected.
 | Enum | Values |
 |---|---|
 | `status` | `draft` (optional), `submitted`, `under_review`, `updates_required`, `awaiting_approval`, `approved`, `ready_to_publish`, `published`, `rejected`, `withdrawn` |
-| `contact_role` | `recorder`, `owner`, `co_lead`, `solution_architect` |
+| displayed stage | `submitted`, `under_review`, `awaiting_edits`, `approved`, `published` — the five stages shown to users; `awaiting_approval` displays as Under Review and `ready_to_publish` as Approved |
+| `contact_role` | `recorder`, `owner_technical`, `owner_operations` (rows written before September 2026 used `owner`, `co_lead`, `solution_architect`; the migration converts them) |
 | `readiness_level` | `conceptual`, `prototype`, `test_phase`, `single_deployment`, `multi_client_deployment` |
-| `deployment_status` | `deployed`, `proposed`, `both`, `neither` |
 | `role` | `reviewer`, `approver`, `publisher`, `admin` |
-| `event_type` | `transition`, `comment`, `attachment_added`, `attachment_removed`, `contact_changed`, `role_granted`, `role_revoked`, `sign_in`, `review_confirmed`, `export_downloaded` |
+| `event_type` | `transition`, `comment`, `attachment_added`, `attachment_removed`, `contact_changed`, `fields_edited`, `role_granted`, `role_revoked`, `sign_in`, `review_confirmed`, `export_downloaded`, `reminder_sent`, `sensitive_data_ack` |
 
 ---
 
