@@ -72,6 +72,8 @@ def _load(db: Session, submission_id: int) -> Submission:
     ).scalar_one_or_none()
     if sub is None:
         raise HTTPException(404, "Submission not found")
+    if sub.archived_at is not None:
+        raise HTTPException(404, "Submission not found")
     return sub
 
 
@@ -513,6 +515,20 @@ async def action(
         f"/submissions/{sub.id}",
         f"{label.label if label else 'Action'} recorded. Status is now {sub.status_enum.label}.",
     )
+
+
+@router.post("/submissions/{submission_id}/delete", dependencies=[Depends(csrf_protect)])
+def delete_submission(submission_id: int, db: Session = Depends(get_db), user: User = Depends(require_user)):
+    sub = _load(db, submission_id)
+    if not policy.can_delete_submission(user, sub):
+        raise HTTPException(403, "You do not have permission to delete this offering")
+    for att in sub.active_attachments:
+        att.deleted_at = utcnow()
+        get_storage().delete(att.blob_path)
+    sub.archived_at = utcnow()
+    workflow.record_event(db, sub, EventType.OFFERING_DELETED, user, note="Offering deleted")
+    db.commit()
+    return redirect("/submissions", f"Deleted offering '{sub.offering_name}'.")
 
 
 # --------------------------------------------------------------------------- comments

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import delete, select, text
 from sqlalchemy.orm import Session
@@ -31,6 +31,14 @@ LOCK_KEY = 7345_2026
 
 
 def business_days_between(start: datetime, end: datetime) -> int:
+    if start.tzinfo is None:
+        start = start.replace(tzinfo=UTC)
+    else:
+        start = start.astimezone(UTC)
+    if end.tzinfo is None:
+        end = end.replace(tzinfo=UTC)
+    else:
+        end = end.astimezone(UTC)
     if end <= start:
         return 0
     days = 0

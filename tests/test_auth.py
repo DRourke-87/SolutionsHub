@@ -86,3 +86,12 @@ def test_security_headers_present(client):
     r = client.get("/login")
     assert "Content-Security-Policy" in r.headers
     assert r.headers["X-Frame-Options"] == "DENY"
+
+
+def test_login_forces_keep_signed_in_for_early_launch(client, outbox, db):
+    page = client.get("/login")
+    token = csrf_from(page.text)
+    r = client.post("/login", data={"email": "remembered@amentum.com", "csrf_token": token})
+    assert r.status_code == 200
+    rec = db.query(MagicLinkToken).filter_by(email="remembered@amentum.com").one()
+    assert rec.remember_me is True

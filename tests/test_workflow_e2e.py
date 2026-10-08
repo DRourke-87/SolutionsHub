@@ -301,3 +301,39 @@ def test_comment_notifies_owners_and_reviewer(client, outbox, db):
     tos = {m["to"] for m in outbox}
     assert {"olivia.owner@amentum.com", "chris.colead@amentum.com", SUBMITTER} <= tos
     assert REVIEWER not in tos
+
+
+def test_publisher_can_delete_offering(client, outbox, db):
+    grant(db, PUBLISHER, Role.PUBLISHER)
+    token = login(client, outbox, SUBMITTER)
+    data = _form(db)
+    data["csrf_token"] = token
+    assert client.post("/submissions/new", data=data).status_code == 303
+    sub = db.execute(select(Submission)).scalar_one()
+
+    token = login(client, outbox, PUBLISHER)
+    r = client.post(f"/submissions/{sub.id}/delete", data={"csrf_token": token})
+    assert r.status_code == 303
+    db.expire_all()
+    sub = db.get(Submission, sub.id)
+    assert sub.archived_at is not None
+
+    assert client.get(f"/submissions/{sub.id}").status_code == 404
+    listing = client.get("/submissions")
+    assert listing.status_code == 200
+    assert "Cloud Cyber Range" not in listing.text
+
+
+def test_non_publisher_cannot_delete_offering(client, outbox, db):
+    grant(db, REVIEWER, Role.REVIEWER)
+    token = login(client, outbox, SUBMITTER)
+    data = _form(db)
+    data["csrf_token"] = token
+    assert client.post("/submissions/new", data=data).status_code == 303
+    sub = db.execute(select(Submission)).scalar_one()
+
+    token = login(client, outbox, REVIEWER)
+    r = client.post(f"/submissions/{sub.id}/delete", data={"csrf_token": token})
+    assert r.status_code == 403
+    db.expire_all()
+    assert db.get(Submission, sub.id).archived_at is None

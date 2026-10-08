@@ -147,6 +147,10 @@ def can_archive(user: User, sub: Submission) -> bool:
     return is_admin(user)
 
 
+def can_delete_submission(user: User, sub: Submission) -> bool:
+    return is_admin(user) or _has(user, Role.PUBLISHER)
+
+
 def can_view_audit(user: User, sub: Submission) -> bool:
     return can_view(user, sub)
 

@@ -54,6 +54,7 @@ def test_publisher_transitions():
     assert not policy.can_publish(pub, _sub(Status.APPROVED))
     assert policy.can_publish(pub, _sub(Status.READY_TO_PUBLISH))
     assert policy.can_export(pub, _sub(Status.SUBMITTED))
+    assert policy.can_delete_submission(pub, _sub(Status.SUBMITTED))
     assert not policy.can_claim(pub, _sub(Status.SUBMITTED))
 
 

@@ -318,7 +318,10 @@ def settings_view(request: Request, user: User = Depends(require_admin)):
         "ALLOWED_EMAIL_DOMAINS": s.allowed_email_domains,
         "BOOTSTRAP_ADMIN_EMAIL": s.bootstrap_admin_email or "(not set)",
         "EMAIL_BACKEND": s.email_backend,
+        "EMAIL_PRIMARY_BACKEND": s.email_primary_backend,
+        "EMAIL_FALLBACK_BACKEND": s.email_fallback_backend,
         "ACS_SENDER": s.acs_sender,
+        "SENDGRID_SENDER": s.sendgrid_sender or "(not set)",
         "STORAGE_BACKEND": s.storage_backend,
         "AZURE_STORAGE_AUTH": "connection string"
         if s.azure_storage_connection_string

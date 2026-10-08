@@ -15,6 +15,11 @@
   <div class="head-actions">
     {% if policy.can_edit(user, sub) %}<a class="btn btn-secondary" href="/submissions/{{ sub.id }}/edit">Edit</a>{% endif %}
     {% if policy.can_export(user, sub) %}<a class="btn btn-ghost" href="/submissions/{{ sub.id }}/export.zip">Export package</a>{% endif %}
+    {% if policy.can_delete_submission(user, sub) %}
+    <form method="post" action="/submissions/{{ sub.id }}/delete" class="inline js-confirm" data-confirm="Delete this offering? This cannot be undone.">{{ csrf() }}
+      <button class="btn btn-danger" type="submit">Delete offering</button>
+    </form>
+    {% endif %}
   </div>
 </div>
 

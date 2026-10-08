@@ -38,8 +38,9 @@ uvicorn app.main:app --reload
 ```
 
 Open http://localhost:8000. With `EMAIL_BACKEND=console` the sign-in link is printed to the console and,
-in `APP_ENV=dev`, also shown on the "check your email" page. Sign in with the `BOOTSTRAP_ADMIN_EMAIL`
-address to become the first Admin.
+in `APP_ENV=dev`, also shown on the "check your email" page. For resilient delivery in test environments,
+set `EMAIL_BACKEND=failover`, `EMAIL_PRIMARY_BACKEND=acs`, and `EMAIL_FALLBACK_BACKEND=sendgrid`.
+Sign in with the `BOOTSTRAP_ADMIN_EMAIL` address to become the first Admin.
 
 Tests and lint:
 
@@ -169,7 +170,9 @@ All settings are environment variables (App Service application settings). Defau
 | `DATABASE_URL` | SQLAlchemy URL, `postgresql+psycopg://…?sslmode=require` | built by the template |
 | `ALLOWED_EMAIL_DOMAINS` | Comma-separated sign-in domains | `amentum.com,global.amentum.com,amentumcms.com` |
 | `BOOTSTRAP_ADMIN_EMAIL` | First admin | set by parameter |
-| `EMAIL_BACKEND` / `ACS_CONNECTION_STRING` / `ACS_SENDER` | Email delivery | `acs`, from `listKeys`, verified sender |
+| `EMAIL_BACKEND` / `EMAIL_PRIMARY_BACKEND` / `EMAIL_FALLBACK_BACKEND` | Email routing | `failover`, `acs`, `sendgrid` |
+| `ACS_CONNECTION_STRING` / `ACS_SENDER` | Primary email provider (ACS) | from `listKeys`, verified sender |
+| `SENDGRID_API_KEY` (`SendGridKey` also accepted) / `SENDGRID_SENDER` | Fallback provider (SendGrid) | key from SendGrid, exact verified sender (single-sender or domain) |
 | `STORAGE_BACKEND` / `AZURE_STORAGE_CONNECTION_STRING` / `AZURE_STORAGE_CONTAINER` | Attachments | `azure`, account connection string, `attachments` |
 | `MAX_ATTACHMENTS_PER_SUBMISSION`, `MAX_ATTACHMENT_MB`, `ALLOWED_ATTACHMENT_EXTENSIONS` | Upload limits | 10, 25, see defaults |
 | `SENSITIVE_DATA_GUIDANCE_URL` | Link shown beside the "no sensitive data" disclaimer to the internal page defining ITAR / CUI / FCI. Blank hides the link | set once Corporate Security supplies the page |
@@ -184,6 +187,7 @@ All settings are environment variables (App Service application settings). Defau
 | Symptom | Likely cause | Fix |
 |---|---|---|
 | "Too many sign-in requests" (HTTP 429) | Rate limit hit for the address or network | Wait an hour, or an Admin can clear rows in `rate_limit_counters`. |
+| Login emails slow/failing during spikes | ACS Azure-managed-domain quotas are low (5/min, 10/hour) | Use failover settings (`acs` primary, `sendgrid` fallback) and move ACS to a verified custom domain before go-live. |
 | "Invalid or missing CSRF token" | Page left open past the session, or cookies blocked | Reload the page and retry. |
 | Sign-in email never arrives | Sender domain not trusted by the recipient mail gateway | See section 7; check Admin → Notifications for the delivery status. |
 | App fails to start after deploy | Migration error or missing setting | `az webapp log tail`; the startup script prints each step. Check `DATABASE_URL` and `AZURE_STORAGE_CONNECTION_STRING` are present in app settings. |

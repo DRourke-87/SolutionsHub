@@ -15,5 +15,6 @@ apscheduler>=3.10,<4
 azure-identity>=1.17
 azure-storage-blob>=12.20
 azure-communication-email>=1.0
+sendgrid>=6.11
 azure-monitor-opentelemetry>=1.6
 opentelemetry-instrumentation-fastapi>=0.46b0

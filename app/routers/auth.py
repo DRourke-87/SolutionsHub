@@ -29,14 +29,13 @@ def login_submit(
     request: Request,
     email: str = Form(...),
     next: str = Form("/"),
-    remember_me: bool = Form(False),
     db: Session = Depends(get_db),
 ):
     request.state.user = None
     settings = get_settings()
     ip = client_ip(request)
     try:
-        raw, link = authsvc.request_magic_link(db, email, ip, next, remember_me)
+        raw, link = authsvc.request_magic_link(db, email, ip, next, remember_me=True)
     except authsvc.RateLimited as exc:
         db.commit()
         return render(request, "login.html", status_code=429, next=next, error=str(exc), email=email)

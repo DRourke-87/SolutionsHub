@@ -160,6 +160,7 @@ class EventType(StrEnum):
     EXPORT_DOWNLOADED = "export_downloaded"
     REMINDER_SENT = "reminder_sent"
     SENSITIVE_DATA_ACK = "sensitive_data_ack"
+    OFFERING_DELETED = "offering_deleted"
 
 
 class NotificationStatus(StrEnum):

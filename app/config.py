@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from functools import lru_cache
 
-from pydantic import Field, field_validator
+from pydantic import AliasChoices, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -27,10 +27,17 @@ class Settings(BaseSettings):
     verify_failures_per_ip_per_hour: int = 10
 
     # Email
-    email_backend: str = "console"  # console | acs
+    email_backend: str = "console"  # console | acs | sendgrid | failover
+    email_primary_backend: str = "acs"
+    email_fallback_backend: str = "sendgrid"
     acs_endpoint: str | None = None
     acs_connection_string: str | None = None
     acs_sender: str = "DoNotReply@example.com"
+    sendgrid_api_key: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("SENDGRID_API_KEY", "SENDGRIDKEY", "SendGridKey"),
+    )
+    sendgrid_sender: str | None = None
 
     # Attachments
     storage_backend: str = "local"  # local | azure

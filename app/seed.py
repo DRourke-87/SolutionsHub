@@ -102,12 +102,19 @@ AREA_RENAMES = {
     "Data Analytics and Cyber": "Data Analytics and Cyber Solutions",
 }
 
-# Placeholder list: the business will supply the definitive Business Groups. Editable in Admin.
+# Definitive business units. Editable in Admin.
 DEFAULT_BUSINESS_GROUPS = [
+    "Mission Solutions (MS)",
+    "Intelligence & Cyber (I&C)",
+    "Engineering & Technology (E&T)",
+    "Energy & Environment (E&E)",
+]
+
+LEGACY_PLACEHOLDER_BUSINESS_GROUPS = {
     "Digital Solutions",
     "Global Engineering Solutions",
     "Corporate / Enterprise Functions",
-]
+}
 
 DEFAULT_PUBLISH_DESTINATIONS = [
     ("Amentum.com – Our Capabilities", "https://www.amentum.com/"),
@@ -116,7 +123,14 @@ DEFAULT_PUBLISH_DESTINATIONS = [
 
 
 def seed_reference_data(db: Session) -> dict[str, int]:
-    created = {"areas": 0, "capabilities": 0, "business_groups": 0, "destinations": 0, "retired": 0}
+    created = {
+        "areas": 0,
+        "capabilities": 0,
+        "business_groups": 0,
+        "destinations": 0,
+        "retired": 0,
+        "retired_business_groups": 0,
+    }
 
     for old_name, new_name in AREA_RENAMES.items():
         area = db.execute(select(CapabilityArea).where(CapabilityArea.name == old_name)).scalar_one_or_none()
@@ -155,11 +169,22 @@ def seed_reference_data(db: Session) -> dict[str, int]:
             cap.is_active = False
             created["retired"] += 1
 
-    existing_groups = {g.name for g in db.execute(select(BusinessGroup)).scalars()}
-    if not existing_groups:
-        for i, name in enumerate(DEFAULT_BUSINESS_GROUPS):
-            db.add(BusinessGroup(name=name, sort_order=i))
+    groups = db.execute(select(BusinessGroup)).scalars().all()
+    groups_by_name = {g.name: g for g in groups}
+
+    for i, name in enumerate(DEFAULT_BUSINESS_GROUPS):
+        group = groups_by_name.get(name)
+        if group is None:
+            db.add(BusinessGroup(name=name, sort_order=i, is_active=True))
             created["business_groups"] += 1
+            continue
+        group.sort_order = i
+        group.is_active = True
+
+    for group in groups:
+        if group.name in LEGACY_PLACEHOLDER_BUSINESS_GROUPS and group.is_active:
+            group.is_active = False
+            created["retired_business_groups"] += 1
 
     existing_dest = {d.name for d in db.execute(select(PublishDestination)).scalars()}
     if not existing_dest:
